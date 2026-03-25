@@ -21,7 +21,7 @@ contract BeefyIntegrationBase is Test {
   IBeefy internal _beefyVault;
   BeefyVaultPSM internal _psm;
 
-  function setUp() public {
+  function setUp() public virtual {
     vm.createSelectFork(vm.rpcUrl('base'), _FORK_BLOCK);
     vm.startPrank(_owner);
     deal(address(_usdbcToken), _owner, 100_000_000 * 10 ** 6);

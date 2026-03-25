@@ -14,6 +14,10 @@ contract MyScript is Script {
       0xbeeF010f9cb27031ad51e3333f9aF9C6B1228183, 0, 30, 0xbf1aeA8670D2528E08334083616dD9C5F3B087aE
     );
 
+    // TODO: After deploy, transfer ownership to multisig, then multisig calls:
+    // morphoVaultPSM.setGuardian(guardianAddress);
+    // morphoVaultPSM.transferOwnership(multisigAddress);
+
     vm.stopBroadcast();
   }
 }

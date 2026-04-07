@@ -4,28 +4,28 @@ pragma solidity 0.8.19;
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {Test} from 'forge-std/Test.sol';
 import {IBeefy} from '../../interfaces/IBeefy.sol';
-import {BeefyVaultPSM} from '../../contracts/BeefyVaultDDW.sol';
+import {BeefyVaultPSMPoly} from '../../contracts/BeefyVaultDDWPoly.sol';
 import 'forge-std/console.sol';
-import {BeefyIntegrationBase} from '../integration/BeefyIntegrationBase.sol';
+import {BeefyIntegrationPoly} from '../integration/BeefyIntegrationPoly.sol';
 import {StdCheats} from 'forge-std/StdCheats.sol';
 
-contract PsmWithdrawalConstructor is BeefyIntegrationBase {
+contract PsmWithdrawalConstructor is BeefyIntegrationPoly {
   function test_OwnerSet() public {
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMPoly();
     _psm.initialize(address(_mooToken), 100, 100);
 
     assertEq(_psm.owner(), address(_owner));
   }
 
   function test_TokenSet() public {
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMPoly();
     _psm.initialize(address(_mooToken), 100, 100);
 
     assertEq(address(_psm.gem()), address(_mooToken));
   }
 
   function test_BeefySet() public {
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMPoly();
     _psm.initialize(address(_mooToken), 100, 100);
     assertEq(address(_psm.underlying()), address(_usdbcToken));
   }
@@ -35,21 +35,21 @@ contract PsmAdminSuite is PsmWithdrawalConstructor {
   event FeesWithdrawn(address indexed owner, uint256 feesEarned);
 
   function test_TransferOwnership() public {
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMPoly();
     _psm.initialize(address(_mooToken), 100, 100);
 
-    vm.expectRevert(BeefyVaultPSM.NewOwnerCannotBeZeroAddress.selector);
+    vm.expectRevert(BeefyVaultPSMPoly.NewOwnerCannotBeZeroAddress.selector);
     _psm.transferOwnership(address(0x0));
 
     _psm.transferOwnership(address(_user));
     assertEq(_psm.owner(), address(_user));
 
-    vm.expectRevert(BeefyVaultPSM.CallerIsNotOwner.selector);
+    vm.expectRevert(BeefyVaultPSMPoly.CallerIsNotOwner.selector);
     _psm.transferOwnership(address(0));
   }
 
   function test_UpdateMaxDepositWithdraw() public {
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMPoly();
     _psm.initialize(address(_mooToken), 100, 200);
 
     _psm.updateMax(200, 3000);
@@ -58,7 +58,7 @@ contract PsmAdminSuite is PsmWithdrawalConstructor {
   }
 
   function test_UpdateFeesBP() public {
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMPoly();
     _psm.initialize(address(_mooToken), 100, 100);
 
     assertEq(_psm.depositFee(), 100);
@@ -69,7 +69,7 @@ contract PsmAdminSuite is PsmWithdrawalConstructor {
   }
 
   function test_UpdateMinimumFees() public {
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMPoly();
     _psm.initialize(address(_mooToken), 100, 100);
     _psm.updateMinimumFees(200, 200);
     assertEq(_psm.minimumDepositFee(), 200);
@@ -77,17 +77,17 @@ contract PsmAdminSuite is PsmWithdrawalConstructor {
   }
 
   function test_Pausing() public {
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMPoly();
     _psm.initialize(address(_mooToken), 100, 100);
 
-    _psm.setPaused(BeefyVaultPSM.deposit.selector, true);
+    _psm.setPaused(BeefyVaultPSMPoly.deposit.selector, true);
 
-    vm.expectRevert(BeefyVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(BeefyVaultPSMPoly.ContractIsPaused.selector);
     _psm.deposit(1_000_000_000);
   }
 
   function test_ClaimFees() public {
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMPoly();
     _psm.initialize(address(_mooToken), 100, 100); // 100/1000 so 0.1
     _beefyVault = IBeefy(address(_mooToken));
 
@@ -144,7 +144,7 @@ contract PsmAdminSuite is PsmWithdrawalConstructor {
     deal(address(_mooToken), address(_psm), 1000 * 10 ** 18);
     uint256 _mooTokenBalance = _mooToken.balanceOf(address(_psm));
     console.log('transferToken mooToken balance:', _mooTokenBalance);
-    vm.expectRevert(BeefyVaultPSM.UpgradeNotScheduled.selector);
+    vm.expectRevert(BeefyVaultPSMPoly.UpgradeNotScheduled.selector);
     _psm.transferToken(address(_mooToken), address(_user), _mooTokenBalance);
     _psm.setUpgrade();
     vm.warp(block.timestamp + 4 days);
@@ -157,7 +157,7 @@ contract PsmDepositSuite is PsmWithdrawalConstructor {
   event Deposited(address indexed user, uint256 amount);
 
   function test_Initialized() public {
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMPoly();
     _psm.initialize(address(_mooToken), 100, 100);
 
     assertEq(_psm.initialized(), true);
@@ -166,14 +166,14 @@ contract PsmDepositSuite is PsmWithdrawalConstructor {
   }
 
   function test_RevertIfPaused() public {
-    _psm.setPaused(BeefyVaultPSM.deposit.selector, true);
-    vm.expectRevert(BeefyVaultPSM.ContractIsPaused.selector);
+    _psm.setPaused(BeefyVaultPSMPoly.deposit.selector, true);
+    vm.expectRevert(BeefyVaultPSMPoly.ContractIsPaused.selector);
     _psm.deposit(100_000_000);
   }
 
   function test_Deposit_ZeroAmountReverts() public {
     uint256 _amount = 0;
-    vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
+    vm.expectRevert(BeefyVaultPSMPoly.InvalidAmount.selector);
     _psm.deposit(_amount);
   }
 
@@ -181,20 +181,18 @@ contract PsmDepositSuite is PsmWithdrawalConstructor {
     uint256 _amount = 1000 * 10 ** 6;
     _usdbcToken.approve(address(_psm), _amount);
     _psm.withdrawMAI();
-    vm.expectRevert(BeefyVaultPSM.InsufficientMAIBalance.selector);
+    vm.expectRevert(BeefyVaultPSMPoly.InsufficientMAIBalance.selector);
     _psm.deposit(_amount);
   }
 
-  function test_Deposit(
-    uint256 _amount
-  ) public {
+  function test_Deposit(uint256 _amount) public {
     bound(_amount, 0, _usdbcToken.balanceOf(msg.sender));
     // Verify that the deposit amount is within the allowed range for deposits
     uint256 maxDeposit = _psm.maxDeposit();
     uint256 minDeposit = _psm.minimumDepositFee();
     if (_amount < minDeposit || _amount > maxDeposit) {
       console.log('Deposit amount too small or too large');
-      vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
+      vm.expectRevert(BeefyVaultPSMPoly.InvalidAmount.selector);
       _psm.deposit(_amount);
       return;
     }
@@ -204,7 +202,7 @@ contract PsmDepositSuite is PsmWithdrawalConstructor {
     uint256 minWithdraw = _psm.minimumWithdrawalFee();
     if (_amount < minWithdraw || _amount > maxWithdraw) {
       console.log('Withdraw amount too small or too large');
-      vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
+      vm.expectRevert(BeefyVaultPSMPoly.InvalidAmount.selector);
       _psm.deposit(_amount);
       return;
     }
@@ -228,7 +226,7 @@ contract PsmDepositSuite is PsmWithdrawalConstructor {
     }
     if (_amount <= _psm.minimumDepositFee() || _amount <= expectedFee) {
       console.log('Deposit amount too small or too large');
-      vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
+      vm.expectRevert(BeefyVaultPSMPoly.InvalidAmount.selector);
       _psm.deposit(_amount);
       return;
     } else {
@@ -251,7 +249,7 @@ contract PsmDepositSuite is PsmWithdrawalConstructor {
   }
 
   function test_DepositWithZeroFee() public {
-    BeefyVaultPSM __psm = new BeefyVaultPSM();
+    BeefyVaultPSMPoly __psm = new BeefyVaultPSMPoly();
     __psm.initialize(address(_mooToken), 0, 0);
     __psm.updateMinimumFees(0, 0);
     deal(address(_maiToken), address(__psm), 100_000_000 * 10 ** 18);
@@ -267,9 +265,9 @@ contract PsmWithdrawSuite is PsmWithdrawalConstructor {
   event Withdrawn(address indexed user, uint256 amount);
 
   function test_RevertIfPaused() public {
-    _psm.setPaused(BeefyVaultPSM.scheduleWithdraw.selector, true);
+    _psm.setPaused(BeefyVaultPSMPoly.scheduleWithdraw.selector, true);
 
-    vm.expectRevert(BeefyVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(BeefyVaultPSMPoly.ContractIsPaused.selector);
     _psm.scheduleWithdraw(1000);
   }
 
@@ -292,7 +290,7 @@ contract PsmWithdrawSuite is PsmWithdrawalConstructor {
 
     vm.warp(block.timestamp + 1 days);
     uint256 withdrawAmount = _maiToken.balanceOf(_owner);
-    vm.expectRevert(BeefyVaultPSM.WithdrawalAlreadyScheduled.selector);
+    vm.expectRevert(BeefyVaultPSMPoly.WithdrawalAlreadyScheduled.selector);
     _psm.scheduleWithdraw(withdrawAmount);
   }
 
@@ -302,19 +300,16 @@ contract PsmWithdrawSuite is PsmWithdrawalConstructor {
     _maiToken.approve(address(_psm), 100e18);
 
     _psm.scheduleWithdraw(100e18);
-    vm.expectRevert(BeefyVaultPSM.WithdrawalNotAvailable.selector);
+    vm.expectRevert(BeefyVaultPSMPoly.WithdrawalNotAvailable.selector);
     _psm.withdraw();
   }
 
   function test_Withdraw_NoScheduledWithdrawalReverts() public {
-    vm.expectRevert(BeefyVaultPSM.WithdrawalNotAvailable.selector);
+    vm.expectRevert(BeefyVaultPSMPoly.WithdrawalNotAvailable.selector);
     _psm.withdraw();
   }
 
-  function test_DepositAndWithdraw(
-    uint256 _depositAmount,
-    uint256 _withdrawAmount
-  ) public {
+  function test_DepositAndWithdraw(uint256 _depositAmount, uint256 _withdrawAmount) public {
     _depositAmount = bound(_depositAmount, 1e6, _usdbcToken.balanceOf(_owner));
     _withdrawAmount = bound(_withdrawAmount, 1e18, _depositAmount * 10 ** 12);
     // Deposit first to ensure there are tokens to withdraw
@@ -330,7 +325,7 @@ contract PsmWithdrawSuite is PsmWithdrawalConstructor {
 
     if (_depositAmount <= _psm.minimumDepositFee() || _depositAmount > _psm.maxDeposit()) {
       console.log('Deposit amount too small or too large');
-      vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
+      vm.expectRevert(BeefyVaultPSMPoly.InvalidAmount.selector);
       _psm.deposit(_depositAmount);
       return;
     } else {
@@ -366,16 +361,9 @@ contract PsmWithdrawSuite is PsmWithdrawalConstructor {
     console.log('=====================================');
 
     // Schedule the withdrawal
-    uint256 _toWithdrawCheck = _withdrawAmount / 1e12;
-    uint256 _feeCheck = _psm.calculateFee(_toWithdrawCheck, false);
-    if (_toWithdrawCheck <= _feeCheck) {
-      console.log('Withdraw amount rounds to dust after fee');
-      vm.expectRevert(BeefyVaultPSM.InvalidAmountAfterFee.selector);
-      _psm.scheduleWithdraw(_withdrawAmount);
-      return;
-    } else if (_withdrawAmount < _psm.minimumWithdrawalFee() || _withdrawAmount > _psm.maxWithdraw()) {
+    if (_withdrawAmount < _psm.minimumWithdrawalFee() || _withdrawAmount > _psm.maxWithdraw()) {
       console.log('Withdraw Amount too small or too large');
-      vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
+      vm.expectRevert(BeefyVaultPSMPoly.InvalidAmount.selector);
       _psm.scheduleWithdraw(_withdrawAmount);
       return;
     } else if ((_psm.totalStableLiquidity() - _psm.totalQueuedLiquidity()) < _withdrawAmount / 1e12) {
@@ -406,15 +394,15 @@ contract PsmWithdrawSuite is PsmWithdrawalConstructor {
     console.log('withdrawAmount:            ', _withdrawAmount);
     if (_psm.totalStableLiquidity() < _withdrawAmount / 1e12) {
       console.log('Not enough liquidity');
-      vm.expectRevert(BeefyVaultPSM.NotEnoughLiquidity.selector);
+      vm.expectRevert(BeefyVaultPSMPoly.NotEnoughLiquidity.selector);
       _psm.withdraw();
     } else if (_withdrawAmount > _depositAmount * 10 ** 12) {
       console.log('Withdraw amount too large');
-      vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
+      vm.expectRevert(BeefyVaultPSMPoly.InvalidAmount.selector);
       _psm.withdraw();
     } else if (_withdrawAmount < _psm.minimumWithdrawalFee() || _withdrawAmount > _psm.maxWithdraw()) {
       console.log('Invalid amount');
-      vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
+      vm.expectRevert(BeefyVaultPSMPoly.InvalidAmount.selector);
       _psm.withdraw();
     } else {
       vm.expectEmit(false, false, false, false);

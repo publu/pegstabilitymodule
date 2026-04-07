@@ -1,4 +1,4 @@
-pragma solidity 0.8.20;
+pragma solidity 0.8.19;
 
 interface IERC20 {
   function approve(address _spender, uint256 _amount) external returns (bool _success);

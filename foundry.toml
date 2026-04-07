@@ -36,3 +36,4 @@ runs = 1000
 mainnet = "${MAINNET_RPC}"
 base = "https://mainnet.base.org"
 linea = "https://1rpc.io/linea"
+metis = "https://andromeda.metis.io/?owner=1088"

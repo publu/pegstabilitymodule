@@ -35,3 +35,4 @@ runs = 1000
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC}"
 base = "https://mainnet.base.org"
+linea = "https://1rpc.io/linea"

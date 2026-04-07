@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {IFly} from '../interfaces/IFly.sol';
+import {IBeefy} from '../interfaces/IBeefy.sol';
 import {IERC20} from '../interfaces/IERC20.sol';
 
-contract MorphoVaultPSM {
+/// @title BeefyVaultPSMMainnet
+/// @notice PSM for Ethereum Mainnet with configurable MAI address and minimum reserves feature
+/// @dev Based on BeefyVaultDDW with added minimum reserves functionality
+contract BeefyVaultPSMMainnet {
   uint256 public constant MAX_INT =
     115_792_089_237_316_195_423_570_985_008_687_907_853_269_984_665_640_564_039_457_584_007_913_129_639_935;
+
+  // Configurable MAI address (not hardcoded like base chain version)
   address public MAI_ADDRESS;
 
   uint256 public totalStableLiquidity;
@@ -15,16 +20,20 @@ contract MorphoVaultPSM {
   uint256 public withdrawalFee;
   uint256 public minimumDepositFee;
   uint256 public minimumWithdrawalFee;
+  uint256 public decimalDifference;
+
+  // Minimum reserves - absolute amount in underlying decimals (6 for USDC)
+  uint256 public minimumReserves;
 
   uint256 public maxDeposit;
   uint256 public maxWithdraw;
   uint256 public upgradeTime;
-  uint256 public decimalDifference;
 
   address public underlying;
   address public owner;
   address public gem;
 
+  // user deposits stable, schedules withdrawal of shares
   mapping(address => uint256) public withdrawalEpoch;
   mapping(address => uint256) public scheduledWithdrawalAmount;
 
@@ -36,8 +45,11 @@ contract MorphoVaultPSM {
   bool public evacuated;
   mapping(address => bool) public guardians;
   uint256 public totalQueuedMAI;
+  uint256 public evacuationTime;
+  uint256 public constant SETTLEMENT_TIMEOUT = 30 days;
 
   error CallerIsNotOwner();
+  error CallerIsNotGuardianOrOwner();
   error ContractIsPaused();
   error InvalidAmount();
   error InvalidAmountAfterFee();
@@ -48,13 +60,14 @@ contract MorphoVaultPSM {
   error WithdrawalAlreadyExecutable();
   error AlreadyInitialized();
   error NewOwnerCannotBeZeroAddress();
+  error GuardianCannotBeZeroAddress();
   error WithdrawalNotAvailable();
   error NotEnoughLiquidity();
-  error UpgradeNotScheduled();
-  error MAIAddressCannotBeZero();
   error NotEvacuated();
-  error CallerIsNotGuardianOrOwner();
-  error GuardianCannotBeZeroAddress();
+  error UpgradeNotScheduled();
+  error SettlementTooEarly();
+  error MAIAddressCannotBeZero();
+  error MinimumReservesBreached();
 
   // Events
   event Deposited(address indexed _user, uint256 _amount);
@@ -71,6 +84,7 @@ contract MorphoVaultPSM {
   event MinimumFeesUpdated(uint256 _newMinimumDepositFee, uint256 _newMinimumWithdrawalFee);
   event FeesUpdated(uint256 _newDepositFee, uint256 _newWithdrawalFee);
   event MaxUpdated(uint256 _maxDeposit, uint256 _maxWithdraw);
+  event MinimumReservesUpdated(uint256 _oldMinimumReserves, uint256 _newMinimumReserves);
   event VaultEvacuated(address indexed _caller, uint256 _sharesRedeemed);
   event Swept(address indexed _caller, uint256 _amount);
   event RefundClaimed(address indexed _user, uint256 _maiAmount);
@@ -96,6 +110,11 @@ contract MorphoVaultPSM {
     _;
   }
 
+  /// @notice Initialize the PSM with vault and fee configuration
+  /// @param _gem The Beefy vault address
+  /// @param _depositFee Deposit fee in basis points
+  /// @param _withdrawalFee Withdrawal fee in basis points
+  /// @param _maiAddress The MAI token address for this chain
   function initialize(
     address _gem,
     uint256 _depositFee,
@@ -108,52 +127,51 @@ contract MorphoVaultPSM {
     if (_maiAddress == address(0)) {
       revert MAIAddressCannotBeZero();
     }
-    depositFee = _depositFee;
-    withdrawalFee = _withdrawalFee;
-    minimumDepositFee = 0;
+
+    depositFee = _depositFee; // basis points
+    withdrawalFee = _withdrawalFee; // basis points
+    minimumDepositFee = 1_000_000; // this is 1 dollar (in 6 decimals)
     minimumWithdrawalFee = 1_000_000; // 1 dollar
 
-    IFly _beef = IFly(_gem);
+    IBeefy _beef = IBeefy(_gem);
 
     maxDeposit = 1e24; // 1 million ether
     maxWithdraw = 1e24; // 1 million ether
-    underlying = _beef.asset();
+    underlying = _beef.want();
     decimalDifference = uint256(_beef.decimals() - IERC20(underlying).decimals());
     gem = _gem;
     MAI_ADDRESS = _maiAddress;
+    minimumReserves = 0; // Default to 0, owner can set later
     initialized = true;
-    approveGem();
+    approveBeef();
   }
 
-  function approveGem() public {
+  function approveBeef() public {
     IERC20(underlying).approve(gem, MAX_INT);
   }
 
-  /// @notice User deposits tokens with 18 decimals and withdraws stablecoin
-  /// @param _amount The amount of tokens to deposit
+  /// @notice User deposits underlying tokens and receives MAI
+  /// @param _amount The amount of underlying tokens to deposit (6 decimals for USDC)
   function deposit(
     uint256 _amount
   ) external pausable {
     if (_amount <= minimumDepositFee || _amount > maxDeposit) revert InvalidAmount();
-    IERC20 iunder = IERC20(underlying);
-    iunder.transferFrom(msg.sender, address(this), _amount);
+    IERC20(underlying).transferFrom(msg.sender, address(this), _amount);
     uint256 _fee = calculateFee(_amount, true);
-
-    IFly(gem).deposit(iunder.balanceOf(address(this)), address(this));
-
     _amount = _amount - _fee;
     totalStableLiquidity += _amount;
+    IBeefy(gem).depositAll();
 
-    uint256 scaledAmount = _amount * (10 ** decimalDifference);
-    if (IERC20(MAI_ADDRESS).balanceOf(address(this)) < scaledAmount) {
+    uint256 _maiOut = _amount * (10 ** (decimalDifference));
+    if (IERC20(MAI_ADDRESS).balanceOf(address(this)) < totalQueuedMAI + _maiOut) {
       revert InsufficientMAIBalance();
     }
-    IERC20(MAI_ADDRESS).transfer(msg.sender, scaledAmount);
+    IERC20(MAI_ADDRESS).transfer(msg.sender, _maiOut);
     emit Deposited(msg.sender, _amount);
   }
 
-  /// @notice Schedules a withdrawal of stablecoin
-  /// @param _amount The amount of stablecoin to withdraw
+  /// @notice Schedule a withdrawal of MAI for underlying tokens
+  /// @param _amount The amount of MAI to withdraw (18 decimals)
   function scheduleWithdraw(
     uint256 _amount
   ) external pausable {
@@ -161,21 +179,45 @@ contract MorphoVaultPSM {
       revert WithdrawalAlreadyScheduled();
     }
 
-    if (_amount < minimumWithdrawalFee || _amount > maxWithdraw) revert InvalidAmount();
-
     uint256 _toWithdraw = _amount / (10 ** decimalDifference);
     uint256 _fee = calculateFee(_toWithdraw, false);
     if (_toWithdraw <= _fee) revert InvalidAmountAfterFee();
-    if ((totalStableLiquidity - totalQueuedLiquidity) < _toWithdraw) revert NotEnoughLiquidity();
+
+    if (_amount < minimumWithdrawalFee || _amount > maxWithdraw) revert InvalidAmount();
+
+    // Check minimum reserves constraint
+    // Available = totalStableLiquidity - totalQueuedLiquidity
+    // After this withdrawal: Available - _toWithdraw must be >= minimumReserves
+    uint256 _availableLiquidity = totalStableLiquidity - totalQueuedLiquidity;
+    if (_availableLiquidity < minimumReserves + _toWithdraw) {
+      revert MinimumReservesBreached();
+    }
+
     totalQueuedLiquidity += _toWithdraw;
     totalQueuedMAI += _amount;
     scheduledWithdrawalAmount[msg.sender] = _amount;
+
     IERC20(MAI_ADDRESS).transferFrom(msg.sender, address(this), _amount);
+
     withdrawalEpoch[msg.sender] = block.timestamp + 3 days;
     emit WithdrawalScheduled(msg.sender, _amount);
   }
 
-  /// @notice Withdraws scheduled stablecoin after the withdrawal epoch
+  function _calculateAmountToShares(
+    uint256 _amount
+  ) internal view returns (uint256 _shares) {
+    IBeefy _beef = IBeefy(gem);
+    return (_amount * _beef.totalSupply()) / _beef.balance();
+  }
+
+  function _calculateSharesToAmount(
+    uint256 _shares
+  ) internal view returns (uint256 _amount) {
+    IBeefy _beef = IBeefy(gem);
+    return (_shares * _beef.balance()) / _beef.totalSupply();
+  }
+
+  /// @notice Execute a scheduled withdrawal. Blocked post-evacuation by pausable modifier.
   function withdraw() external pausable {
     if (withdrawalEpoch[msg.sender] == 0 || block.timestamp < withdrawalEpoch[msg.sender]) {
       revert WithdrawalNotAvailable();
@@ -190,25 +232,24 @@ contract MorphoVaultPSM {
     if (_toWithdraw > totalStableLiquidity) {
       revert NotEnoughLiquidity();
     }
-    IFly vault = IFly(gem);
+
+    IBeefy _beef = IBeefy(gem);
+    uint256 _freshShares = _calculateAmountToShares(_amount);
+    uint256 _freshSharesRounded = (_freshShares / (10 ** decimalDifference));
+    _beef.withdraw(_freshSharesRounded);
+    IERC20(underlying).transfer(msg.sender, _toWithdrawwFee);
+    _beef.depositAll();
 
     totalStableLiquidity -= _toWithdraw;
     totalQueuedLiquidity -= _toWithdraw;
     totalQueuedMAI -= _amount;
 
-    // This would withdraw and transfer to user
-    vault.withdraw(_toWithdrawwFee, msg.sender, address(this));
-    uint256 _remaining = IERC20(underlying).balanceOf(address(this));
-    if (_remaining > 0) {
-      vault.deposit(_remaining, address(this));
-    }
-
     emit Withdrawn(msg.sender, _amount);
   }
 
-  /// @notice Calculates the fee for deposit or withdrawal
-  /// @param _amount The amount to calculate the fee on
-  /// @param _deposit Boolean indicating if the fee is for a deposit (true) or withdrawal (false)
+  /// @notice Calculate the fee for a deposit or withdrawal
+  /// @param _amount The amount to calculate fee on (in underlying decimals)
+  /// @param _deposit True for deposit fee, false for withdrawal fee
   /// @return _fee The calculated fee
   function calculateFee(
     uint256 _amount,
@@ -223,33 +264,68 @@ contract MorphoVaultPSM {
     }
   }
 
-  /// @notice Allows the owner to claim fees accumulated in the contract
-  function claimFees() external onlyOwner {
-    IFly _beef = IFly(gem);
+  /// @notice Returns the amount available for new withdrawal scheduling
+  /// @return The amount in underlying decimals (6 for USDC) that can be withdrawn
+  function availableForWithdrawal() public view returns (uint256) {
+    uint256 _availableLiquidity = totalStableLiquidity - totalQueuedLiquidity;
+    if (_availableLiquidity <= minimumReserves) {
+      return 0;
+    }
+    uint256 _available = _availableLiquidity - minimumReserves;
+    // Clamp to amounts that survive the withdrawal fee floor
+    uint256 _fee = calculateFee(_available, false);
+    if (_available <= _fee) {
+      return 0;
+    }
+    return _available;
+  }
 
-    uint256 totalShares = _beef.balanceOf(address(this));
-    uint256 _totalStoredInUsd = _beef.convertToAssets(totalShares);
+  /// @notice Returns the amount available for withdrawal scheduling in MAI decimals
+  /// @return The amount in MAI decimals (18) that can be withdrawn
+  function availableForWithdrawalInMAI() external view returns (uint256) {
+    return availableForWithdrawal() * (10 ** decimalDifference);
+  }
+
+  /// @notice Owner can claim accumulated fees (yield above liabilities)
+  function claimFees() external onlyOwner {
+    if (evacuated) return;
+    IBeefy _beef = IBeefy(gem);
+    // get total balance in underlying
+    uint256 _shares = _beef.balanceOf(address(this));
+    uint256 _totalStoredInUsd = _calculateSharesToAmount(_shares);
+    uint256 _totalStableShares = _calculateAmountToShares(totalStableLiquidity);
     if (_totalStoredInUsd > totalStableLiquidity) {
       uint256 _fees = (_totalStoredInUsd - totalStableLiquidity); // in USDC
-      _beef.withdraw(_totalStoredInUsd - totalStableLiquidity, msg.sender, address(this));
+      _beef.withdraw(_shares - _totalStableShares);
       emit FeesWithdrawn(msg.sender, _fees);
-      // directly sends the owner the amount
+      IERC20 usdc = IERC20(underlying);
+      usdc.transfer(msg.sender, usdc.balanceOf(address(this)));
     }
   }
 
-  /// @notice Emergency evacuation: withdraws all assets from the Morpho vault and freezes the contract
+  /// @notice Set the minimum reserves that must remain available in the PSM
+  /// @param _minimumReserves The minimum amount in underlying token decimals (6 for USDC)
+  function setMinimumReserves(
+    uint256 _minimumReserves
+  ) external onlyOwner {
+    uint256 _oldMinimumReserves = minimumReserves;
+    minimumReserves = _minimumReserves;
+    emit MinimumReservesUpdated(_oldMinimumReserves, _minimumReserves);
+  }
+
+  /// @notice Emergency evacuation: withdraws all assets from the Beefy vault and freezes the contract
   function evacuateVault() external onlyGuardianOrOwner {
     evacuated = true;
+    if (evacuationTime == 0) evacuationTime = block.timestamp;
 
     if (!stopped) {
       stopped = true;
       upgradeTime = block.timestamp + 2 days;
     }
 
-    IFly vault = IFly(gem);
-    uint256 totalShares = vault.balanceOf(address(this));
+    uint256 totalShares = IBeefy(gem).balanceOf(address(this));
     if (totalShares > 0) {
-      try vault.redeem(totalShares, address(this), address(this)) {}
+      try IBeefy(gem).withdrawAll() {}
       catch (bytes memory reason) {
         emit RedeemFailed(reason);
       }
@@ -276,23 +352,42 @@ contract MorphoVaultPSM {
     emit RefundClaimed(msg.sender, amount);
   }
 
-  /// @notice Deposits idle USDC in the contract into the Morpho vault with correct bookkeeping
+  /// @notice Owner can force-settle a stale queued entry after SETTLEMENT_TIMEOUT
+  function forceSettle(
+    address _user
+  ) external onlyOwner {
+    if (!evacuated) revert NotEvacuated();
+    if (block.timestamp < evacuationTime + SETTLEMENT_TIMEOUT) revert SettlementTooEarly();
+    uint256 amount = scheduledWithdrawalAmount[_user];
+    if (amount == 0) revert NoWithdrawalScheduled();
+
+    uint256 toRefund = amount / (10 ** decimalDifference);
+
+    scheduledWithdrawalAmount[_user] = 0;
+    withdrawalEpoch[_user] = 0;
+    totalQueuedLiquidity -= toRefund;
+    totalStableLiquidity -= toRefund;
+    totalQueuedMAI -= amount;
+
+    // Send MAI directly to the user's address
+    IERC20(MAI_ADDRESS).transfer(_user, amount);
+    emit RefundClaimed(_user, amount);
+  }
+
+  /// @notice Deposits idle USDC in the contract into the Beefy vault with correct bookkeeping
   function sweep() external onlyOwner {
     if (evacuated) revert ContractIsPaused();
 
-    IERC20 iunder = IERC20(underlying);
-    uint256 balance = iunder.balanceOf(address(this));
+    uint256 balance = IERC20(underlying).balanceOf(address(this));
     if (balance == 0) revert InvalidAmount();
 
-    IFly(gem).deposit(balance, address(this));
+    IBeefy(gem).depositAll();
     totalStableLiquidity += balance;
 
     emit Swept(msg.sender, balance);
   }
 
   /// @notice Adds or removes a guardian address for emergency evacuation
-  /// @param _guardian The guardian address to add or remove
-  /// @param _enabled True to add, false to remove
   function setGuardian(
     address _guardian,
     bool _enabled
@@ -302,9 +397,6 @@ contract MorphoVaultPSM {
     emit GuardianUpdated(_guardian, _enabled);
   }
 
-  /// @notice Sets a function selector to paused or unpaused
-  /// @param _selector The function selector to pause or unpause
-  /// @param _paused Boolean indicating if the function should be paused (true) or unpaused (false)
   function setPaused(
     bytes4 _selector,
     bool _paused
@@ -313,8 +405,6 @@ contract MorphoVaultPSM {
     emit PauseEvent(msg.sender, _selector, _paused);
   }
 
-  /// @notice Transfers ownership of the contract to a new owner
-  /// @param _newOwner The address of the new owner
   function transferOwnership(
     address _newOwner
   ) external onlyOwner {
@@ -323,7 +413,6 @@ contract MorphoVaultPSM {
     emit OwnerUpdated(_newOwner);
   }
 
-  /// @notice Prepares the contract for an upgrade
   function setUpgrade() external onlyOwner {
     if (!stopped) {
       stopped = true;
@@ -331,20 +420,19 @@ contract MorphoVaultPSM {
     }
   }
 
-  /// @notice Allows the owner to transfer tokens from the contract
-  /// @param _token The address of the token to transfer
-  /// @param _to The address to transfer the tokens to
-  /// @param _amount The amount of tokens to transfer
   function transferToken(
     address _token,
     address _to,
     uint256 _amount
   ) external onlyOwner {
-    bool isProtectedToken = _token == gem || (_token == underlying && evacuated);
-    if (_token == MAI_ADDRESS && evacuated) {
-      uint256 available = IERC20(MAI_ADDRESS).balanceOf(address(this)) - totalQueuedMAI;
+    // MAI: reserve totalQueuedMAI
+    if (_token == MAI_ADDRESS) {
+      uint256 balance = IERC20(MAI_ADDRESS).balanceOf(address(this));
+      uint256 available = balance > totalQueuedMAI ? balance - totalQueuedMAI : 0;
       if (_amount > available) revert NotEnoughLiquidity();
     }
+    // underlying: NO reservation needed — users get MAI not USDC
+    bool isProtectedToken = _token == gem || (_token == underlying && evacuated);
     if (!isProtectedToken || (stopped && block.timestamp > upgradeTime)) {
       IERC20(_token).transfer(_to, _amount);
     } else {
@@ -352,24 +440,16 @@ contract MorphoVaultPSM {
     }
   }
 
-  /// @notice Allows the owner to withdraw MAI tokens from the contract
   function withdrawMAI() external onlyOwner {
     IERC20 _mai = IERC20(MAI_ADDRESS);
     uint256 balance = _mai.balanceOf(address(this));
 
-    if (evacuated) {
-      uint256 available = balance > totalQueuedMAI ? balance - totalQueuedMAI : 0;
-      if (available > 0) {
-        _mai.transfer(msg.sender, available);
-      }
-    } else {
-      _mai.transfer(msg.sender, balance);
+    uint256 available = balance > totalQueuedMAI ? balance - totalQueuedMAI : 0;
+    if (available > 0) {
+      _mai.transfer(msg.sender, available);
     }
   }
 
-  /// @notice Updates the minimum fees for deposit and withdrawal
-  /// @param _newMinimumDepositFee The new minimum deposit fee
-  /// @param _newMinimumWithdrawalFee The new minimum withdrawal fee
   function updateMinimumFees(
     uint256 _newMinimumDepositFee,
     uint256 _newMinimumWithdrawalFee
@@ -379,9 +459,6 @@ contract MorphoVaultPSM {
     emit MinimumFeesUpdated(_newMinimumDepositFee, _newMinimumWithdrawalFee);
   }
 
-  /// @notice Updates the deposit and withdrawal fees in basis points
-  /// @param _newDepositFee The new deposit fee in basis points
-  /// @param _newWithdrawalFee The new withdrawal fee in basis points
   function updateFeesBP(
     uint256 _newDepositFee,
     uint256 _newWithdrawalFee
@@ -391,9 +468,6 @@ contract MorphoVaultPSM {
     emit FeesUpdated(_newDepositFee, _newWithdrawalFee);
   }
 
-  /// @notice Updates the maximum deposit and withdrawal limits
-  /// @param _maxDeposit The new maximum deposit limit
-  /// @param _maxWithdraw The new maximum withdrawal limit
   function updateMax(
     uint256 _maxDeposit,
     uint256 _maxWithdraw

@@ -1,0 +1,9 @@
+testMode: property
+testLimit: 50000
+seqLen: 100
+deployer: "0x10000"
+sender: ["0x20000", "0x30000", "0x40000"]
+corpusDir: "echidna-corpus"
+codeSize: 0xFFFF
+# Use Foundry's remappings
+cryticArgs: ["--foundry-compile-all"]

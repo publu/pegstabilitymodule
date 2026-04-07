@@ -185,7 +185,9 @@ contract PsmDepositSuite is PsmWithdrawalConstructor {
     _psm.deposit(_amount);
   }
 
-  function test_Deposit(uint256 _amount) public {
+  function test_Deposit(
+    uint256 _amount
+  ) public {
     bound(_amount, 0, _usdbcToken.balanceOf(msg.sender));
     // Verify that the deposit amount is within the allowed range for deposits
     uint256 maxDeposit = _psm.maxDeposit();
@@ -309,7 +311,10 @@ contract PsmWithdrawSuite is PsmWithdrawalConstructor {
     _psm.withdraw();
   }
 
-  function test_DepositAndWithdraw(uint256 _depositAmount, uint256 _withdrawAmount) public {
+  function test_DepositAndWithdraw(
+    uint256 _depositAmount,
+    uint256 _withdrawAmount
+  ) public {
     _depositAmount = bound(_depositAmount, 1e6, _usdbcToken.balanceOf(_owner));
     _withdrawAmount = bound(_withdrawAmount, 1e18, _depositAmount * 10 ** 12);
     // Deposit first to ensure there are tokens to withdraw
@@ -361,7 +366,14 @@ contract PsmWithdrawSuite is PsmWithdrawalConstructor {
     console.log('=====================================');
 
     // Schedule the withdrawal
-    if (_withdrawAmount < _psm.minimumWithdrawalFee() || _withdrawAmount > _psm.maxWithdraw()) {
+    uint256 _toWithdrawCheck = _withdrawAmount / 1e12;
+    uint256 _feeCheck = _psm.calculateFee(_toWithdrawCheck, false);
+    if (_toWithdrawCheck <= _feeCheck) {
+      console.log('Withdraw amount rounds to dust after fee');
+      vm.expectRevert(BeefyVaultPSM.InvalidAmountAfterFee.selector);
+      _psm.scheduleWithdraw(_withdrawAmount);
+      return;
+    } else if (_withdrawAmount < _psm.minimumWithdrawalFee() || _withdrawAmount > _psm.maxWithdraw()) {
       console.log('Withdraw Amount too small or too large');
       vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
       _psm.scheduleWithdraw(_withdrawAmount);

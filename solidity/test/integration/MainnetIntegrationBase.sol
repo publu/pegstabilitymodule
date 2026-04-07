@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {Test} from 'forge-std/Test.sol';
 
-import {BeefyVaultPSMMainnet} from 'contracts/BeefyVaultPSMMainnet.sol';
+import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
 import {IBeefy} from '../../interfaces/IBeefy.sol';
 import {console} from 'forge-std/console.sol';
 
@@ -24,7 +24,7 @@ contract MainnetIntegrationBase is Test {
   IERC20 internal _maiToken = IERC20(0x8D6CeBD76f18E1558D4DB88138e2DeFB3909fAD6); // MAI on mainnet
 
   IBeefy internal _beefyVault;
-  BeefyVaultPSMMainnet internal _psm;
+  BeefyVaultPSMV2 internal _psm;
 
   /// @notice Override to test with a different Beefy vault
   function _mooTokenAddress() internal pure virtual returns (address) {
@@ -72,7 +72,7 @@ contract MainnetIntegrationBase is Test {
 
     vm.startPrank(_owner);
     _beefyVault = IBeefy(address(_mooToken));
-    _psm = new BeefyVaultPSMMainnet();
+    _psm = new BeefyVaultPSMV2();
     vm.stopPrank();
 
     // Fund PSM with MAI for deposits (uses whale transfer, needs its own prank)

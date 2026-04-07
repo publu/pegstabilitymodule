@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {BeefyVaultPSMMainnet} from 'contracts/BeefyVaultPSMMainnet.sol';
+import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
 import {MockERC20Echidna, MockBeefyVault} from './EchidnaBeefyPSM.sol';
 
 /// @title EchidnaBeefyPSMMainnet
-/// @notice Echidna property test harness for BeefyVaultPSMMainnet (Ethereum version)
+/// @notice Echidna property test harness for BeefyVaultPSMV2 (Ethereum version)
 /// @dev Uses hevm.prank for multi-actor testing and hevm.warp for time advancement.
 ///      MAI_ADDRESS is configurable on mainnet, so no hevm.etch needed.
 contract EchidnaBeefyPSMMainnet {
   // HEVM cheatcode interface (Echidna 2.x)
   address internal constant HEVM = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
 
-  BeefyVaultPSMMainnet internal psm;
+  BeefyVaultPSMV2 internal psm;
   MockERC20Echidna internal usdc;
   MockERC20Echidna internal mai;
   MockBeefyVault internal vault;
@@ -39,7 +39,7 @@ contract EchidnaBeefyPSMMainnet {
     mai = new MockERC20Echidna('MAI', 'MAI', 18);
     vault = new MockBeefyVault(usdc);
 
-    psm = new BeefyVaultPSMMainnet();
+    psm = new BeefyVaultPSMV2();
     psm.initialize(address(vault), 0, 30, address(mai));
     psm.setGuardian(GUARDIAN, true);
     psm.transferOwnership(OWNER);

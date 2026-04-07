@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {Test} from 'forge-std/Test.sol';
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
-import {USDCVaultPSM} from 'contracts/USDCVaultPSM.sol';
+import {USDCVaultPSM} from 'contracts/USDCVaultPSM/V1.sol';
 import {ZkevmIntegrationBase} from '../integration/ZkevmIntegrationBase.sol';
 
 // ========================

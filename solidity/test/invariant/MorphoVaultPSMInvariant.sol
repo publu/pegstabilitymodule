@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {Test} from 'forge-std/Test.sol';
 import {StdInvariant} from 'forge-std/StdInvariant.sol';
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
-import {MorphoVaultPSM} from 'contracts/MorphoVaultPSM.sol';
+import {MorphoVaultPSMV2} from 'contracts/MorphoVaultPSM/V2.sol';
 import {IFly} from '../../interfaces/IFly.sol';
 import {console} from 'forge-std/console.sol';
 
@@ -160,7 +160,7 @@ contract MockERC4626 {
 /// @title MorphoPSMHandler
 /// @notice Handler for invariant testing — no fork needed
 contract MorphoPSMHandler is Test {
-  MorphoVaultPSM public psm;
+  MorphoVaultPSMV2 public psm;
   MockERC20 public usdc;
   MockERC20 public mai;
   MockERC4626 public vault;
@@ -183,7 +183,7 @@ contract MorphoPSMHandler is Test {
   uint256 public ghost_refundCount;
 
   constructor(
-    MorphoVaultPSM _psm,
+    MorphoVaultPSMV2 _psm,
     MockERC20 _usdc,
     MockERC20 _mai,
     MockERC4626 _vault,
@@ -353,7 +353,7 @@ contract MorphoPSMHandler is Test {
 /// @title MorphoVaultPSMInvariantTest
 /// @notice All operations mixed — chaos scenario (no fork, uses mocks)
 contract MorphoVaultPSMInvariantTest is StdInvariant, Test {
-  MorphoVaultPSM internal psm;
+  MorphoVaultPSMV2 internal psm;
   MorphoPSMHandler internal handler;
   MockERC20 internal usdc;
   MockERC20 internal mai;
@@ -370,7 +370,7 @@ contract MorphoVaultPSMInvariantTest is StdInvariant, Test {
 
     // Deploy PSM
     vm.startPrank(owner);
-    psm = new MorphoVaultPSM();
+    psm = new MorphoVaultPSMV2();
     vm.stopPrank();
 
     // Fund PSM with MAI
@@ -449,7 +449,7 @@ contract MorphoVaultPSMInvariantTest is StdInvariant, Test {
 /// @title MorphoVaultPSMInvariantNormalOps
 /// @notice Normal operations + sweep only (no evacuation) — regression baseline
 contract MorphoVaultPSMInvariantNormalOps is StdInvariant, Test {
-  MorphoVaultPSM internal psm;
+  MorphoVaultPSMV2 internal psm;
   MorphoPSMHandler internal handler;
   MockERC20 internal usdc;
   MockERC20 internal mai;
@@ -464,7 +464,7 @@ contract MorphoVaultPSMInvariantNormalOps is StdInvariant, Test {
     vault = new MockERC4626(usdc);
 
     vm.startPrank(owner);
-    psm = new MorphoVaultPSM();
+    psm = new MorphoVaultPSMV2();
     vm.stopPrank();
 
     mai.mint(address(psm), 10_000_000 * 10 ** 18);

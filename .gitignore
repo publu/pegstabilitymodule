@@ -18,3 +18,5 @@ broadcast/*/*/*
 
 # Out dir
 out
+echidna-corpus/*
+crytic-export/*

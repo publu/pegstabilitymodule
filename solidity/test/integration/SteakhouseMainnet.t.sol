@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
-import {BeefyVaultPSMMainnet} from 'contracts/BeefyVaultPSMMainnet.sol';
+import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
 import {MainnetIntegrationBase} from './MainnetIntegrationBase.sol';
 
 /// @title SteakhouseMainnet
@@ -66,7 +66,7 @@ contract SteakhouseMainnet is MainnetIntegrationBase {
 
     vm.warp(block.timestamp + 1 days);
 
-    vm.expectRevert(BeefyVaultPSMMainnet.WithdrawalNotAvailable.selector);
+    vm.expectRevert(BeefyVaultPSMV2.WithdrawalNotAvailable.selector);
     _psm.withdraw();
   }
 
@@ -89,7 +89,7 @@ contract SteakhouseMainnet is MainnetIntegrationBase {
     vm.startPrank(_owner);
     _usdcToken.approve(address(_psm), tooMuch);
 
-    vm.expectRevert(BeefyVaultPSMMainnet.InvalidAmount.selector);
+    vm.expectRevert(BeefyVaultPSMV2.InvalidAmount.selector);
     _psm.deposit(tooMuch);
   }
 
@@ -97,18 +97,18 @@ contract SteakhouseMainnet is MainnetIntegrationBase {
     uint256 tooSmall = 1_000_000;
     _usdcToken.approve(address(_psm), tooSmall);
 
-    vm.expectRevert(BeefyVaultPSMMainnet.InvalidAmount.selector);
+    vm.expectRevert(BeefyVaultPSMV2.InvalidAmount.selector);
     _psm.deposit(tooSmall);
   }
 
   function test_deposit_insufficientMaiBalance_reverts() public {
-    BeefyVaultPSMMainnet emptyPsm = new BeefyVaultPSMMainnet();
+    BeefyVaultPSMV2 emptyPsm = new BeefyVaultPSMV2();
     emptyPsm.initialize(address(_mooToken), 100, 100, address(_maiToken));
 
     uint256 depositAmount = 1000 * 10 ** 6;
     _usdcToken.approve(address(emptyPsm), depositAmount);
 
-    vm.expectRevert(BeefyVaultPSMMainnet.InsufficientMAIBalance.selector);
+    vm.expectRevert(BeefyVaultPSMV2.InsufficientMAIBalance.selector);
     emptyPsm.deposit(depositAmount);
   }
 }

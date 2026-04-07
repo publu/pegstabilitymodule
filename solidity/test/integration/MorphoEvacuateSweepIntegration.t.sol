@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {Test} from 'forge-std/Test.sol';
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
-import {MorphoVaultPSM} from 'contracts/MorphoVaultPSM.sol';
+import {MorphoVaultPSMV2} from 'contracts/MorphoVaultPSM/V2.sol';
 import {IFly} from '../../interfaces/IFly.sol';
 
 /// @title MorphoEvacuateSweepIntegrationTest
@@ -16,8 +16,8 @@ contract MorphoEvacuateSweepIntegrationTest is Test {
   address internal constant MAI_BASE = 0xbf1aeA8670D2528E08334083616dD9C5F3B087aE;
   address internal constant USDC_BASE = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
 
-  MorphoVaultPSM internal psmGauntlet;
-  MorphoVaultPSM internal psmSteakhouse;
+  MorphoVaultPSMV2 internal psmGauntlet;
+  MorphoVaultPSMV2 internal psmSteakhouse;
 
   address internal owner = makeAddr('owner');
   address internal guardian = makeAddr('guardian');
@@ -43,9 +43,9 @@ contract MorphoEvacuateSweepIntegrationTest is Test {
 
   function _deployPSM(
     address vault
-  ) internal returns (MorphoVaultPSM psm) {
+  ) internal returns (MorphoVaultPSMV2 psm) {
     vm.startPrank(owner);
-    psm = new MorphoVaultPSM();
+    psm = new MorphoVaultPSMV2();
     psm.initialize(vault, 0, 30, MAI_BASE);
     psm.setGuardian(guardian, true);
     vm.stopPrank();
@@ -64,7 +64,7 @@ contract MorphoEvacuateSweepIntegrationTest is Test {
   // ═══════════════════════════════════════════════════════════
 
   function test_fullMigrationFlow_Gauntlet() public {
-    MorphoVaultPSM oldPsm = psmGauntlet;
+    MorphoVaultPSMV2 oldPsm = psmGauntlet;
     IFly vault = IFly(MORPHO_GAUNTLET);
 
     // Step 1: User deposits into old PSM
@@ -94,7 +94,7 @@ contract MorphoEvacuateSweepIntegrationTest is Test {
     assertEq(usdc.balanceOf(address(oldPsm)), 0, 'Old PSM should have 0 USDC');
 
     // Step 5: Deploy new PSM and send USDC to it
-    MorphoVaultPSM newPsm = _deployPSM(MORPHO_GAUNTLET);
+    MorphoVaultPSMV2 newPsm = _deployPSM(MORPHO_GAUNTLET);
     vm.prank(owner);
     usdc.transfer(address(newPsm), usdcInOldPsm);
 
@@ -113,7 +113,7 @@ contract MorphoEvacuateSweepIntegrationTest is Test {
   // ═══════════════════════════════════════════════════════════
 
   function test_fullMigrationFlow_Steakhouse() public {
-    MorphoVaultPSM oldPsm = psmSteakhouse;
+    MorphoVaultPSMV2 oldPsm = psmSteakhouse;
     IFly vault = IFly(MORPHO_STEAKHOUSE);
 
     // Deposit
@@ -135,7 +135,7 @@ contract MorphoEvacuateSweepIntegrationTest is Test {
     oldPsm.transferToken(USDC_BASE, owner, usdcInOldPsm);
 
     // Deploy new + sweep
-    MorphoVaultPSM newPsm = _deployPSM(MORPHO_STEAKHOUSE);
+    MorphoVaultPSMV2 newPsm = _deployPSM(MORPHO_STEAKHOUSE);
     vm.prank(owner);
     usdc.transfer(address(newPsm), usdcInOldPsm);
     vm.prank(owner);
@@ -221,7 +221,7 @@ contract MorphoEvacuateSweepIntegrationTest is Test {
     psmGauntlet.transferToken(USDC_BASE, owner, usdcRecovered);
 
     // Deploy new PSM, sweep
-    MorphoVaultPSM newPsm = _deployPSM(MORPHO_GAUNTLET);
+    MorphoVaultPSMV2 newPsm = _deployPSM(MORPHO_GAUNTLET);
     vm.prank(owner);
     usdc.transfer(address(newPsm), usdcRecovered);
     vm.prank(owner);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {IERC20} from '../interfaces/IERC20.sol';
+import {IERC20} from 'interfaces/IERC20.sol';
 
 /// @title USDCVaultPSM
 /// @notice One-way Peg Stability Module: users deposit USDC and receive MAI (no reverse direction)

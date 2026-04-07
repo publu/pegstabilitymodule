@@ -2,13 +2,13 @@
 pragma solidity ^0.8.19;
 
 import 'forge-std/Script.sol';
-import '../contracts/BeefyVaultPSMMainnet.sol';
+import 'contracts/BeefyVaultPSM/V2.sol';
 
 contract DeployBeefyGauntletMainnet is Script {
   function run() external {
     vm.startBroadcast();
 
-    BeefyVaultPSMMainnet psm = new BeefyVaultPSMMainnet();
+    BeefyVaultPSMV2 psm = new BeefyVaultPSMV2();
     psm.initialize(
       0x16F06dE7F077A95684DBAeEdD15A5808c3E13cD0, // Beefy Gauntlet Frontier mooToken
       0, // depositFee: 0 bps (per QCI 250)

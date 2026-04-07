@@ -1,12 +1,18 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {IBeefy} from '../interfaces/IBeefy.sol';
-import {IERC20} from '../interfaces/IERC20.sol';
+import {IBeefy} from 'interfaces/IBeefy.sol';
+import {IERC20} from 'interfaces/IERC20.sol';
 
-contract BeefyVaultPSM {
+/// @title BeefyVaultPSMV2
+/// @notice PSM with configurable MAI address, minimum reserves, and evacuate/sweep/multi-guardian
+/// @dev V2 of BeefyVaultPSM. Strict superset of V1 (was named BeefyVaultPSMMainnet before V1/V2 split).
+contract BeefyVaultPSMV2 {
   uint256 public constant MAX_INT =
     115_792_089_237_316_195_423_570_985_008_687_907_853_269_984_665_640_564_039_457_584_007_913_129_639_935;
-  address public constant MAI_ADDRESS = 0xbf1aeA8670D2528E08334083616dD9C5F3B087aE;
+
+  // Configurable MAI address (not hardcoded like base chain version)
+  address public MAI_ADDRESS;
 
   uint256 public totalStableLiquidity;
   uint256 public totalQueuedLiquidity;
@@ -15,6 +21,9 @@ contract BeefyVaultPSM {
   uint256 public minimumDepositFee;
   uint256 public minimumWithdrawalFee;
   uint256 public decimalDifference;
+
+  // Minimum reserves - absolute amount in underlying decimals (6 for USDC)
+  uint256 public minimumReserves;
 
   uint256 public maxDeposit;
   uint256 public maxWithdraw;
@@ -57,6 +66,8 @@ contract BeefyVaultPSM {
   error NotEvacuated();
   error UpgradeNotScheduled();
   error SettlementTooEarly();
+  error MAIAddressCannotBeZero();
+  error MinimumReservesBreached();
 
   // Events
   event Deposited(address indexed _user, uint256 _amount);
@@ -73,13 +84,13 @@ contract BeefyVaultPSM {
   event MinimumFeesUpdated(uint256 _newMinimumDepositFee, uint256 _newMinimumWithdrawalFee);
   event FeesUpdated(uint256 _newDepositFee, uint256 _newWithdrawalFee);
   event MaxUpdated(uint256 _maxDeposit, uint256 _maxWithdraw);
+  event MinimumReservesUpdated(uint256 _oldMinimumReserves, uint256 _newMinimumReserves);
   event VaultEvacuated(address indexed _caller, uint256 _sharesRedeemed);
   event Swept(address indexed _caller, uint256 _amount);
   event RefundClaimed(address indexed _user, uint256 _maiAmount);
   event GuardianUpdated(address _guardian, bool _enabled);
   event RedeemFailed(bytes _reason);
 
-  // target 0x9c4ec768c28520b50860ea7a15bd7213a9ff58bf
   constructor() {
     owner = msg.sender;
   }
@@ -99,17 +110,27 @@ contract BeefyVaultPSM {
     _;
   }
 
+  /// @notice Initialize the PSM with vault and fee configuration
+  /// @param _gem The Beefy vault address
+  /// @param _depositFee Deposit fee in basis points
+  /// @param _withdrawalFee Withdrawal fee in basis points
+  /// @param _maiAddress The MAI token address for this chain
   function initialize(
     address _gem,
     uint256 _depositFee,
-    uint256 _withdrawalFee
+    uint256 _withdrawalFee,
+    address _maiAddress
   ) external onlyOwner {
     if (initialized) {
       revert AlreadyInitialized();
     }
+    if (_maiAddress == address(0)) {
+      revert MAIAddressCannotBeZero();
+    }
+
     depositFee = _depositFee; // basis points
     withdrawalFee = _withdrawalFee; // basis points
-    minimumDepositFee = 1_000_000; // this is 1 dollar
+    minimumDepositFee = 1_000_000; // this is 1 dollar (in 6 decimals)
     minimumWithdrawalFee = 1_000_000; // 1 dollar
 
     IBeefy _beef = IBeefy(_gem);
@@ -119,6 +140,8 @@ contract BeefyVaultPSM {
     underlying = _beef.want();
     decimalDifference = uint256(_beef.decimals() - IERC20(underlying).decimals());
     gem = _gem;
+    MAI_ADDRESS = _maiAddress;
+    minimumReserves = 0; // Default to 0, owner can set later
     initialized = true;
     approveBeef();
   }
@@ -127,7 +150,8 @@ contract BeefyVaultPSM {
     IERC20(underlying).approve(gem, MAX_INT);
   }
 
-  // user deposits tokens (6 decimals), withdraws stable 18 decimals
+  /// @notice User deposits underlying tokens and receives MAI
+  /// @param _amount The amount of underlying tokens to deposit (6 decimals for USDC)
   function deposit(
     uint256 _amount
   ) external pausable {
@@ -146,6 +170,8 @@ contract BeefyVaultPSM {
     emit Deposited(msg.sender, _amount);
   }
 
+  /// @notice Schedule a withdrawal of MAI for underlying tokens
+  /// @param _amount The amount of MAI to withdraw (18 decimals)
   function scheduleWithdraw(
     uint256 _amount
   ) external pausable {
@@ -158,7 +184,15 @@ contract BeefyVaultPSM {
     if (_toWithdraw <= _fee) revert InvalidAmountAfterFee();
 
     if (_amount < minimumWithdrawalFee || _amount > maxWithdraw) revert InvalidAmount();
-    if ((totalStableLiquidity - totalQueuedLiquidity) < _toWithdraw) revert NotEnoughLiquidity();
+
+    // Check minimum reserves constraint
+    // Available = totalStableLiquidity - totalQueuedLiquidity
+    // After this withdrawal: Available - _toWithdraw must be >= minimumReserves
+    uint256 _availableLiquidity = totalStableLiquidity - totalQueuedLiquidity;
+    if (_availableLiquidity < minimumReserves + _toWithdraw) {
+      revert MinimumReservesBreached();
+    }
+
     totalQueuedLiquidity += _toWithdraw;
     totalQueuedMAI += _amount;
     scheduledWithdrawalAmount[msg.sender] = _amount;
@@ -213,6 +247,10 @@ contract BeefyVaultPSM {
     emit Withdrawn(msg.sender, _amount);
   }
 
+  /// @notice Calculate the fee for a deposit or withdrawal
+  /// @param _amount The amount to calculate fee on (in underlying decimals)
+  /// @param _deposit True for deposit fee, false for withdrawal fee
+  /// @return _fee The calculated fee
   function calculateFee(
     uint256 _amount,
     bool _deposit
@@ -226,6 +264,29 @@ contract BeefyVaultPSM {
     }
   }
 
+  /// @notice Returns the amount available for new withdrawal scheduling
+  /// @return The amount in underlying decimals (6 for USDC) that can be withdrawn
+  function availableForWithdrawal() public view returns (uint256) {
+    uint256 _availableLiquidity = totalStableLiquidity - totalQueuedLiquidity;
+    if (_availableLiquidity <= minimumReserves) {
+      return 0;
+    }
+    uint256 _available = _availableLiquidity - minimumReserves;
+    // Clamp to amounts that survive the withdrawal fee floor
+    uint256 _fee = calculateFee(_available, false);
+    if (_available <= _fee) {
+      return 0;
+    }
+    return _available;
+  }
+
+  /// @notice Returns the amount available for withdrawal scheduling in MAI decimals
+  /// @return The amount in MAI decimals (18) that can be withdrawn
+  function availableForWithdrawalInMAI() external view returns (uint256) {
+    return availableForWithdrawal() * (10 ** decimalDifference);
+  }
+
+  /// @notice Owner can claim accumulated fees (yield above liabilities)
   function claimFees() external onlyOwner {
     if (evacuated) return;
     IBeefy _beef = IBeefy(gem);
@@ -240,6 +301,16 @@ contract BeefyVaultPSM {
       IERC20 usdc = IERC20(underlying);
       usdc.transfer(msg.sender, usdc.balanceOf(address(this)));
     }
+  }
+
+  /// @notice Set the minimum reserves that must remain available in the PSM
+  /// @param _minimumReserves The minimum amount in underlying token decimals (6 for USDC)
+  function setMinimumReserves(
+    uint256 _minimumReserves
+  ) external onlyOwner {
+    uint256 _oldMinimumReserves = minimumReserves;
+    minimumReserves = _minimumReserves;
+    emit MinimumReservesUpdated(_oldMinimumReserves, _minimumReserves);
   }
 
   /// @notice Emergency evacuation: withdraws all assets from the Beefy vault and freezes the contract

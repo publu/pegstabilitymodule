@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {Test} from 'forge-std/Test.sol';
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
-import {MorphoVaultPSM} from 'contracts/MorphoVaultPSM.sol';
+import {MorphoVaultPSMV2} from 'contracts/MorphoVaultPSM/V2.sol';
 import {IFly} from '../../interfaces/IFly.sol';
 import {console} from 'forge-std/console.sol';
 
@@ -72,7 +72,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
   event RefundClaimed(address indexed _user, uint256 _maiAmount);
   event GuardianUpdated(address _guardian, bool _enabled);
 
-  MorphoVaultPSM internal psm;
+  MorphoVaultPSMV2 internal psm;
 
   address internal owner = makeAddr('owner');
   address internal guardian = makeAddr('guardian');
@@ -110,7 +110,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
     vm.createSelectFork(vm.rpcUrl('base'));
 
     vm.startPrank(owner);
-    psm = new MorphoVaultPSM();
+    psm = new MorphoVaultPSMV2();
     vm.stopPrank();
 
     // Fund PSM with MAI for deposits
@@ -192,7 +192,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
 
   function test_evacuateVault_randomAddressReverts() public {
     vm.prank(random);
-    vm.expectRevert(MorphoVaultPSM.CallerIsNotGuardianOrOwner.selector);
+    vm.expectRevert(MorphoVaultPSMV2.CallerIsNotGuardianOrOwner.selector);
     psm.evacuateVault();
   }
 
@@ -235,7 +235,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
     _dealUSDC(user2, 10_000 * 10 ** 6);
     vm.startPrank(user2);
     usdcToken.approve(address(psm), 10_000 * 10 ** 6);
-    vm.expectRevert(MorphoVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(MorphoVaultPSMV2.ContractIsPaused.selector);
     psm.deposit(10_000 * 10 ** 6);
     vm.stopPrank();
 
@@ -243,7 +243,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
     _dealMAI(user2, 10_000 * 10 ** 18);
     vm.startPrank(user2);
     maiToken.approve(address(psm), 10_000 * 10 ** 18);
-    vm.expectRevert(MorphoVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(MorphoVaultPSMV2.ContractIsPaused.selector);
     psm.scheduleWithdraw(10_000 * 10 ** 18);
     vm.stopPrank();
   }
@@ -265,7 +265,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
 
     // withdraw should revert even though epoch passed
     vm.prank(user1);
-    vm.expectRevert(MorphoVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(MorphoVaultPSMV2.ContractIsPaused.selector);
     psm.withdraw();
   }
 
@@ -332,7 +332,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
 
   function test_claimRefund_revertsWhenNotEvacuated() public {
     vm.prank(user1);
-    vm.expectRevert(MorphoVaultPSM.NotEvacuated.selector);
+    vm.expectRevert(MorphoVaultPSMV2.NotEvacuated.selector);
     psm.claimRefund();
   }
 
@@ -341,7 +341,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
     psm.evacuateVault();
 
     vm.prank(user1);
-    vm.expectRevert(MorphoVaultPSM.NoWithdrawalScheduled.selector);
+    vm.expectRevert(MorphoVaultPSMV2.NoWithdrawalScheduled.selector);
     psm.claimRefund();
   }
 
@@ -358,7 +358,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
     psm.claimRefund();
 
     vm.prank(user1);
-    vm.expectRevert(MorphoVaultPSM.NoWithdrawalScheduled.selector);
+    vm.expectRevert(MorphoVaultPSMV2.NoWithdrawalScheduled.selector);
     psm.claimRefund();
   }
 
@@ -422,7 +422,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
 
   function test_sweep_revertsOnZeroBalance() public {
     vm.prank(owner);
-    vm.expectRevert(MorphoVaultPSM.InvalidAmount.selector);
+    vm.expectRevert(MorphoVaultPSMV2.InvalidAmount.selector);
     psm.sweep();
   }
 
@@ -433,7 +433,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
     _dealUSDC(address(psm), 10_000 * 10 ** 6);
 
     vm.prank(owner);
-    vm.expectRevert(MorphoVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(MorphoVaultPSMV2.ContractIsPaused.selector);
     psm.sweep();
   }
 
@@ -441,7 +441,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
     _dealUSDC(address(psm), 10_000 * 10 ** 6);
 
     vm.prank(random);
-    vm.expectRevert(MorphoVaultPSM.CallerIsNotOwner.selector);
+    vm.expectRevert(MorphoVaultPSMV2.CallerIsNotOwner.selector);
     psm.sweep();
   }
 
@@ -520,20 +520,20 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
 
   function test_setGuardian_nonOwnerReverts() public {
     vm.prank(random);
-    vm.expectRevert(MorphoVaultPSM.CallerIsNotOwner.selector);
+    vm.expectRevert(MorphoVaultPSMV2.CallerIsNotOwner.selector);
     psm.setGuardian(random, true);
   }
 
   function test_guardian_cannotCallSweep() public {
     _dealUSDC(address(psm), 10_000 * 10 ** 6);
     vm.prank(guardian);
-    vm.expectRevert(MorphoVaultPSM.CallerIsNotOwner.selector);
+    vm.expectRevert(MorphoVaultPSMV2.CallerIsNotOwner.selector);
     psm.sweep();
   }
 
   function test_guardian_cannotCallClaimFees() public {
     vm.prank(guardian);
-    vm.expectRevert(MorphoVaultPSM.CallerIsNotOwner.selector);
+    vm.expectRevert(MorphoVaultPSMV2.CallerIsNotOwner.selector);
     psm.claimFees();
   }
 
@@ -581,7 +581,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
 
     // Removed guardian reverts
     vm.prank(guardian);
-    vm.expectRevert(MorphoVaultPSM.CallerIsNotGuardianOrOwner.selector);
+    vm.expectRevert(MorphoVaultPSMV2.CallerIsNotGuardianOrOwner.selector);
     psm.evacuateVault();
 
     // Remaining guardian succeeds
@@ -595,7 +595,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
     psm.setGuardian(guardian, false);
 
     vm.prank(guardian);
-    vm.expectRevert(MorphoVaultPSM.CallerIsNotGuardianOrOwner.selector);
+    vm.expectRevert(MorphoVaultPSMV2.CallerIsNotGuardianOrOwner.selector);
     psm.evacuateVault();
   }
 
@@ -615,7 +615,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
 
   function test_setGuardian_addressZeroReverts() public {
     vm.prank(owner);
-    vm.expectRevert(MorphoVaultPSM.GuardianCannotBeZeroAddress.selector);
+    vm.expectRevert(MorphoVaultPSMV2.GuardianCannotBeZeroAddress.selector);
     psm.setGuardian(address(0), true);
   }
 
@@ -669,7 +669,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
 
     // Immediately after evacuation — underlying should be gated
     vm.prank(owner);
-    vm.expectRevert(MorphoVaultPSM.UpgradeNotScheduled.selector);
+    vm.expectRevert(MorphoVaultPSMV2.UpgradeNotScheduled.selector);
     psm.transferToken(USDC_BASE, owner, usdcInPsm);
   }
 
@@ -714,7 +714,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
 
     // Try to transfer more MAI than available (excess of reserved)
     vm.prank(owner);
-    vm.expectRevert(MorphoVaultPSM.NotEnoughLiquidity.selector);
+    vm.expectRevert(MorphoVaultPSMV2.NotEnoughLiquidity.selector);
     psm.transferToken(MAI_BASE, owner, maiBalance);
   }
 
@@ -832,7 +832,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
     vm.startPrank(user1);
     maiToken.approve(address(psm), dustMai);
 
-    vm.expectRevert(MorphoVaultPSM.InvalidAmountAfterFee.selector);
+    vm.expectRevert(MorphoVaultPSMV2.InvalidAmountAfterFee.selector);
     psm.scheduleWithdraw(dustMai);
     vm.stopPrank();
   }
@@ -847,7 +847,7 @@ contract MorphoVaultPSMEvacuateAndSweepTest is Test {
     vm.startPrank(user1);
     maiToken.approve(address(psm), oneDollarMai);
 
-    vm.expectRevert(MorphoVaultPSM.InvalidAmountAfterFee.selector);
+    vm.expectRevert(MorphoVaultPSMV2.InvalidAmountAfterFee.selector);
     psm.scheduleWithdraw(oneDollarMai);
     vm.stopPrank();
   }
@@ -875,7 +875,7 @@ contract MorphoVaultPSMRedeemFailureTest is Test {
   event VaultEvacuated(address indexed _caller, uint256 _sharesRedeemed);
   event RedeemFailed(bytes _reason);
 
-  MorphoVaultPSM internal psm;
+  MorphoVaultPSMV2 internal psm;
   RevertingMockVault internal revertVault;
 
   address internal owner = makeAddr('owner');
@@ -904,7 +904,7 @@ contract MorphoVaultPSMRedeemFailureTest is Test {
     revertVault = new RevertingMockVault(USDC_BASE);
 
     vm.startPrank(owner);
-    psm = new MorphoVaultPSM();
+    psm = new MorphoVaultPSMV2();
     vm.stopPrank();
 
     deal(MAI_BASE, address(psm), 5_000_000 * 10 ** 18);
@@ -941,7 +941,7 @@ contract MorphoVaultPSMRedeemFailureTest is Test {
     _dealUSDC(user1, 10_000 * 10 ** 6);
     vm.startPrank(user1);
     usdcToken.approve(address(psm), 10_000 * 10 ** 6);
-    vm.expectRevert(MorphoVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(MorphoVaultPSMV2.ContractIsPaused.selector);
     psm.deposit(10_000 * 10 ** 6);
     vm.stopPrank();
   }
@@ -965,8 +965,8 @@ contract MorphoVaultPSMRedeemFailureTest is Test {
 /// @title MorphoVaultPSMMigrationWithRefundsTest
 /// @notice E2E migration test with queued withdrawals and refunds mid-migration
 contract MorphoVaultPSMMigrationWithRefundsTest is Test {
-  MorphoVaultPSM internal oldPsm;
-  MorphoVaultPSM internal newPsm;
+  MorphoVaultPSMV2 internal oldPsm;
+  MorphoVaultPSMV2 internal newPsm;
 
   address internal owner = makeAddr('owner');
   address internal guardian = makeAddr('guardian');
@@ -995,7 +995,7 @@ contract MorphoVaultPSMMigrationWithRefundsTest is Test {
     _dealUSDC(user2, 1_000_000 * 10 ** 6);
 
     vm.startPrank(owner);
-    oldPsm = new MorphoVaultPSM();
+    oldPsm = new MorphoVaultPSMV2();
     vm.stopPrank();
 
     deal(MAI_BASE, address(oldPsm), 10_000_000 * 10 ** 18);
@@ -1058,7 +1058,7 @@ contract MorphoVaultPSMMigrationWithRefundsTest is Test {
 
     // Step 8: Deploy new PSM, send USDC, sweep
     vm.startPrank(owner);
-    newPsm = new MorphoVaultPSM();
+    newPsm = new MorphoVaultPSMV2();
     vm.stopPrank();
 
     deal(MAI_BASE, address(newPsm), 10_000_000 * 10 ** 18);

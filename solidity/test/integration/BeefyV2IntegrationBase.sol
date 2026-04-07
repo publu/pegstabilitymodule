@@ -4,11 +4,15 @@ pragma solidity 0.8.19;
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {Test} from 'forge-std/Test.sol';
 
-import {BeefyVaultPSM} from 'contracts/BeefyVaultPSM/V1.sol';
+import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
 import {IBeefy} from '../../interfaces/IBeefy.sol';
 import {console} from 'forge-std/console.sol';
 
-contract BeefyIntegrationBase is Test {
+/// @notice Base test fixture for the V2 BeefyVaultPSM (with evacuate/sweep, multi-guardian,
+///         minimum reserves, configurable MAI address). Use this for tests that exercise
+///         V2-only behaviour. Tests that target the deployed V1 bytecode should use
+///         `BeefyIntegrationBase` instead.
+contract BeefyV2IntegrationBase is Test {
   uint256 internal constant _FORK_BLOCK = 8_420_622;
 
   address internal _user = makeAddr('user');
@@ -19,7 +23,7 @@ contract BeefyIntegrationBase is Test {
   IERC20 internal _maiToken = IERC20(0xbf1aeA8670D2528E08334083616dD9C5F3B087aE);
 
   IBeefy internal _beefyVault;
-  BeefyVaultPSM internal _psm;
+  BeefyVaultPSMV2 internal _psm;
 
   function setUp() public virtual {
     vm.createSelectFork(vm.rpcUrl('base'), _FORK_BLOCK);
@@ -27,12 +31,9 @@ contract BeefyIntegrationBase is Test {
     deal(address(_usdbcToken), _owner, 100_000_000 * 10 ** 6);
     deal(address(_usdbcToken), _user, 100_000_000 * 10 ** 6);
     _beefyVault = IBeefy(address(_mooToken));
-    _psm = new BeefyVaultPSM();
+    _psm = new BeefyVaultPSMV2();
     deal(address(_maiToken), address(_psm), 100_000_000 * 10 ** 18);
-    // console.log('BeefyVaultWithdrawal address:', address(psm));
-    // console.log('owner:', psm.owner());
-    // console.log('prank:', _owner);
-    _psm.initialize(address(_mooToken), 100, 100);
+    _psm.initialize(address(_mooToken), 100, 100, address(_maiToken));
     _psm.approveBeef();
   }
 }

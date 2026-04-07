@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {Test} from 'forge-std/Test.sol';
 import {IBeefy} from '../../interfaces/IBeefy.sol';
-import {BeefyVaultPSM} from '../../contracts/BeefyVaultDDW.sol';
+import {BeefyVaultPSM} from 'contracts/BeefyVaultPSM/V1.sol';
 import 'forge-std/console.sol';
 import {BeefyIntegrationBase} from '../integration/BeefyIntegrationBase.sol';
 import {StdCheats} from 'forge-std/StdCheats.sol';

@@ -1,13 +1,12 @@
-// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {IERC20} from '../interfaces/IERC20.sol';
+import {IL2DSR} from 'interfaces/IL2DSR.sol';
+import {IERC20} from 'interfaces/IERC20.sol';
 
-contract USDCVaultDDW {
+contract DAIVaultPSM {
   uint256 public constant MAX_INT =
     115_792_089_237_316_195_423_570_985_008_687_907_853_269_984_665_640_564_039_457_584_007_913_129_639_935;
-  address public MAI_ADDRESS;
-  address public USDC_ADDRESS;
+  address public constant MAI_ADDRESS = 0xf3B001D64C656e30a62fbaacA003B1336b4ce12A;
 
   uint256 public totalStableLiquidity;
   uint256 public totalQueuedLiquidity;
@@ -20,8 +19,11 @@ contract USDCVaultDDW {
   uint256 public maxWithdraw;
   uint256 public upgradeTime;
 
+  address public underlying;
   address public owner;
+  address public gem;
 
+  // user deposits stable, schedules withdrawal of shares
   mapping(address => uint256) public withdrawalEpoch;
   mapping(address => uint256) public scheduledWithdrawalAmount;
 
@@ -44,8 +46,6 @@ contract USDCVaultDDW {
   error WithdrawalNotAvailable();
   error NotEnoughLiquidity();
   error UpgradeNotScheduled();
-  error MAIAddressCannotBeZero();
-  error USDCAddressCannotBeZero();
 
   // Events
   event Deposited(address indexed _user, uint256 _amount);
@@ -73,70 +73,64 @@ contract USDCVaultDDW {
   }
 
   modifier pausable() {
-    if (paused[msg.sig] || stopped && block.timestamp > upgradeTime) revert ContractIsPaused();
+    if (paused[msg.sig] || (stopped && block.timestamp > upgradeTime)) revert ContractIsPaused();
     _;
   }
 
-  function initialize(
-    uint256 _depositFee,
-    uint256 _withdrawalFee,
-    address _maiAddress,
-    address _usdcAddress
-  ) external onlyOwner {
+  function initialize(address _gem, uint256 _depositFee, uint256 _withdrawalFee) external onlyOwner {
     if (initialized) {
       revert AlreadyInitialized();
     }
-    if (_maiAddress == address(0)) {
-      revert MAIAddressCannotBeZero();
-    }
-    if (_usdcAddress == address(0)) {
-      revert USDCAddressCannotBeZero();
-    }
     depositFee = _depositFee;
     withdrawalFee = _withdrawalFee;
-    minimumDepositFee = 0;
-    minimumWithdrawalFee = 0;
+    minimumDepositFee = 1 ether;
+    minimumWithdrawalFee = 1 ether;
 
-    maxDeposit = 1e12; // 1 million USDC (6 decimals)
-    maxWithdraw = 1e12; // 1 million USDC (6 decimals)
-    MAI_ADDRESS = _maiAddress;
-    USDC_ADDRESS = _usdcAddress;
+    IL2DSR _beef = IL2DSR(_gem);
+
+    maxDeposit = 1e24; // 1 million ether
+    maxWithdraw = 1e24; // 1 million ether
+    underlying = _beef.asset();
+    gem = _gem;
     initialized = true;
+    approveGem();
   }
 
-  /// @notice User deposits tokens with 6 decimals and withdraws stablecoin
+  function approveGem() public {
+    IERC20(underlying).approve(gem, MAX_INT);
+  }
+
+  /// @notice User deposits tokens with 18 decimals and withdraws stablecoin
   /// @param _amount The amount of tokens to deposit
-  function deposit(
-    uint256 _amount
-  ) external pausable {
+  function deposit(uint256 _amount) external pausable {
     if (_amount <= minimumDepositFee || _amount > maxDeposit) revert InvalidAmount();
-    IERC20(USDC_ADDRESS).transferFrom(msg.sender, address(this), _amount);
+    IERC20 iunder = IERC20(underlying);
+    iunder.transferFrom(msg.sender, address(this), _amount);
     uint256 _fee = calculateFee(_amount, true);
+
+    IL2DSR(gem).deposit(iunder.balanceOf(address(this)), address(this));
+
     _amount = _amount - _fee;
     totalStableLiquidity += _amount;
 
-    if (IERC20(MAI_ADDRESS).balanceOf(address(this)) < _amount * 1e12) {
-      // Convert from USDC (6) to MAI (18) decimals
+    if (IERC20(MAI_ADDRESS).balanceOf(address(this)) < _amount) {
       revert InsufficientMAIBalance();
     }
-    IERC20(MAI_ADDRESS).transfer(msg.sender, _amount * 1e12); // Convert from USDC (6) to MAI (18) decimals
+    IERC20(MAI_ADDRESS).transfer(msg.sender, _amount);
     emit Deposited(msg.sender, _amount);
   }
 
   /// @notice Schedules a withdrawal of stablecoin
   /// @param _amount The amount of stablecoin to withdraw
-  function scheduleWithdraw(
-    uint256 _amount
-  ) external pausable {
+  function scheduleWithdraw(uint256 _amount) external pausable {
     if (withdrawalEpoch[msg.sender] != 0) {
       revert WithdrawalAlreadyScheduled();
     }
 
-    uint256 _toWithdraw = _amount / 1e12; // Convert from MAI (18) to USDC (6) decimals
+    if (_amount < minimumWithdrawalFee || _amount > maxWithdraw) revert InvalidAmount();
 
-    if (_amount < minimumWithdrawalFee * 1e12 || _amount > maxWithdraw * 1e12) revert InvalidAmount();
-    if ((totalStableLiquidity - totalQueuedLiquidity) < _toWithdraw) revert NotEnoughLiquidity();
-    totalQueuedLiquidity += _toWithdraw;
+    if ((totalStableLiquidity - totalQueuedLiquidity) < _amount) revert NotEnoughLiquidity();
+    totalQueuedLiquidity += _amount;
     scheduledWithdrawalAmount[msg.sender] = _amount;
     IERC20(MAI_ADDRESS).transferFrom(msg.sender, address(this), _amount);
     withdrawalEpoch[msg.sender] = block.timestamp + 3 days;
@@ -152,17 +146,23 @@ contract USDCVaultDDW {
     withdrawalEpoch[msg.sender] = 0;
     uint256 _amount = scheduledWithdrawalAmount[msg.sender];
     scheduledWithdrawalAmount[msg.sender] = 0;
-    uint256 _toWithdraw = _amount / 1e12; // Convert from MAI (18) to USDC (6) decimals
+    uint256 _toWithdraw = _amount;
     uint256 _fee = calculateFee(_toWithdraw, false);
     uint256 _toWithdrawwFee = (_toWithdraw - _fee);
     if (_toWithdraw > totalStableLiquidity) {
       revert NotEnoughLiquidity();
     }
+    IL2DSR l2dsr = IL2DSR(gem);
 
     totalStableLiquidity -= _toWithdraw;
     totalQueuedLiquidity -= _toWithdraw;
 
-    IERC20(USDC_ADDRESS).transfer(msg.sender, _toWithdrawwFee);
+    // This would withdraw and transfer to user
+    l2dsr.withdraw(_toWithdrawwFee, msg.sender, address(this));
+    uint256 _remaining = IERC20(underlying).balanceOf(address(this));
+    if (_remaining > 0) {
+      l2dsr.deposit(_remaining, address(this));
+    }
 
     emit Withdrawn(msg.sender, _amount);
   }
@@ -183,11 +183,15 @@ contract USDCVaultDDW {
 
   /// @notice Allows the owner to claim fees accumulated in the contract
   function claimFees() external onlyOwner {
-    uint256 balance = IERC20(USDC_ADDRESS).balanceOf(address(this));
-    if (balance > totalStableLiquidity) {
-      uint256 _fees = balance - totalStableLiquidity;
-      IERC20(USDC_ADDRESS).transfer(msg.sender, _fees);
+    IL2DSR _beef = IL2DSR(gem);
+
+    uint256 totalShares = _beef.balanceOf(address(this));
+    uint256 _totalStoredInUsd = _beef.convertToAssets(totalShares);
+    if (_totalStoredInUsd > totalStableLiquidity) {
+      uint256 _fees = (_totalStoredInUsd - totalStableLiquidity); // in USDC
+      _beef.withdraw(_totalStoredInUsd - totalStableLiquidity, msg.sender, address(this));
       emit FeesWithdrawn(msg.sender, _fees);
+      // directly sends the owner the amount
     }
   }
 
@@ -201,9 +205,7 @@ contract USDCVaultDDW {
 
   /// @notice Transfers ownership of the contract to a new owner
   /// @param _newOwner The address of the new owner
-  function transferOwnership(
-    address _newOwner
-  ) external onlyOwner {
+  function transferOwnership(address _newOwner) external onlyOwner {
     if (_newOwner == address(0)) revert NewOwnerCannotBeZeroAddress();
     owner = _newOwner;
     emit OwnerUpdated(_newOwner);
@@ -222,7 +224,7 @@ contract USDCVaultDDW {
   /// @param _to The address to transfer the tokens to
   /// @param _amount The amount of tokens to transfer
   function transferToken(address _token, address _to, uint256 _amount) external onlyOwner {
-    if (_token != USDC_ADDRESS || (stopped && block.timestamp > upgradeTime)) {
+    if (_token != gem || (stopped && block.timestamp > upgradeTime)) {
       IERC20(_token).transfer(_to, _amount);
     } else {
       revert UpgradeNotScheduled();

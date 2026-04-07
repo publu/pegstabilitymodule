@@ -4,59 +4,59 @@ pragma solidity 0.8.19;
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {Test} from 'forge-std/Test.sol';
 import {IBeefy} from '../../interfaces/IBeefy.sol';
-import {BeefyVaultPSMMainnet} from '../../contracts/BeefyVaultPSMMainnet.sol';
+import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
 import 'forge-std/console.sol';
 import {MainnetIntegrationBase} from '../integration/MainnetIntegrationBase.sol';
 import {StdCheats} from 'forge-std/StdCheats.sol';
 
 contract PsmMainnetConstructor is MainnetIntegrationBase {
   function test_OwnerSet() public {
-    BeefyVaultPSMMainnet newPsm = new BeefyVaultPSMMainnet();
+    BeefyVaultPSMV2 newPsm = new BeefyVaultPSMV2();
     newPsm.initialize(address(_mooToken), 100, 100, address(_maiToken));
 
     assertEq(newPsm.owner(), address(_owner));
   }
 
   function test_TokenSet() public {
-    BeefyVaultPSMMainnet newPsm = new BeefyVaultPSMMainnet();
+    BeefyVaultPSMV2 newPsm = new BeefyVaultPSMV2();
     newPsm.initialize(address(_mooToken), 100, 100, address(_maiToken));
 
     assertEq(address(newPsm.gem()), address(_mooToken));
   }
 
   function test_MAIAddressSet() public {
-    BeefyVaultPSMMainnet newPsm = new BeefyVaultPSMMainnet();
+    BeefyVaultPSMV2 newPsm = new BeefyVaultPSMV2();
     newPsm.initialize(address(_mooToken), 100, 100, address(_maiToken));
 
     assertEq(newPsm.MAI_ADDRESS(), address(_maiToken));
   }
 
   function test_MAIAddressCannotBeZero() public {
-    BeefyVaultPSMMainnet newPsm = new BeefyVaultPSMMainnet();
+    BeefyVaultPSMV2 newPsm = new BeefyVaultPSMV2();
 
-    vm.expectRevert(BeefyVaultPSMMainnet.MAIAddressCannotBeZero.selector);
+    vm.expectRevert(BeefyVaultPSMV2.MAIAddressCannotBeZero.selector);
     newPsm.initialize(address(_mooToken), 100, 100, address(0));
   }
 
   function test_UnderlyingSet() public {
-    BeefyVaultPSMMainnet newPsm = new BeefyVaultPSMMainnet();
+    BeefyVaultPSMV2 newPsm = new BeefyVaultPSMV2();
     newPsm.initialize(address(_mooToken), 100, 100, address(_maiToken));
     assertEq(address(newPsm.underlying()), address(_usdcToken));
   }
 
   function test_MinimumReservesDefaultsToZero() public {
-    BeefyVaultPSMMainnet newPsm = new BeefyVaultPSMMainnet();
+    BeefyVaultPSMV2 newPsm = new BeefyVaultPSMV2();
     newPsm.initialize(address(_mooToken), 100, 100, address(_maiToken));
 
     assertEq(newPsm.minimumReserves(), 0);
   }
 
   function test_Initialized() public {
-    BeefyVaultPSMMainnet newPsm = new BeefyVaultPSMMainnet();
+    BeefyVaultPSMV2 newPsm = new BeefyVaultPSMV2();
     newPsm.initialize(address(_mooToken), 100, 100, address(_maiToken));
 
     assertEq(newPsm.initialized(), true);
-    vm.expectRevert(BeefyVaultPSMMainnet.AlreadyInitialized.selector);
+    vm.expectRevert(BeefyVaultPSMV2.AlreadyInitialized.selector);
     newPsm.initialize(address(_mooToken), 100, 100, address(_maiToken));
   }
 }
@@ -68,7 +68,7 @@ contract PsmMainnetMinimumReservesConfig is MainnetIntegrationBase {
     vm.stopPrank();
     vm.startPrank(_user);
 
-    vm.expectRevert(BeefyVaultPSMMainnet.CallerIsNotOwner.selector);
+    vm.expectRevert(BeefyVaultPSMV2.CallerIsNotOwner.selector);
     _psm.setMinimumReserves(1000 * 10 ** 6);
   }
 
@@ -120,7 +120,7 @@ contract PsmMainnetMinimumReservesEnforcement is MainnetIntegrationBase {
     uint256 tooMuchMAI = 100 * 10 ** 18;
 
     _maiToken.approve(address(_psm), tooMuchMAI);
-    vm.expectRevert(BeefyVaultPSMMainnet.MinimumReservesBreached.selector);
+    vm.expectRevert(BeefyVaultPSMV2.MinimumReservesBreached.selector);
     _psm.scheduleWithdraw(tooMuchMAI);
   }
 
@@ -208,7 +208,7 @@ contract PsmMainnetMinimumReservesEnforcement is MainnetIntegrationBase {
     _dealToken(address(_maiToken), _user, 600 * 10 ** 18);
     _maiToken.approve(address(_psm), 600 * 10 ** 18);
 
-    vm.expectRevert(BeefyVaultPSMMainnet.MinimumReservesBreached.selector);
+    vm.expectRevert(BeefyVaultPSMV2.MinimumReservesBreached.selector);
     _psm.scheduleWithdraw(600 * 10 ** 18);
   }
 
@@ -267,15 +267,15 @@ contract PsmMainnetMinimumReservesEnforcement is MainnetIntegrationBase {
     uint256 _feeCheck = _psm.calculateFee(withdrawInUnderlying, false);
     if (withdrawInUnderlying <= _feeCheck) {
       // Dust amount: USDC equivalent consumed by fee floor
-      vm.expectRevert(BeefyVaultPSMMainnet.InvalidAmountAfterFee.selector);
+      vm.expectRevert(BeefyVaultPSMV2.InvalidAmountAfterFee.selector);
       _psm.scheduleWithdraw(withdrawAmount);
     } else if (withdrawInUnderlying > available) {
       // Should revert
-      vm.expectRevert(BeefyVaultPSMMainnet.MinimumReservesBreached.selector);
+      vm.expectRevert(BeefyVaultPSMV2.MinimumReservesBreached.selector);
       _psm.scheduleWithdraw(withdrawAmount);
     } else if (withdrawAmount < _psm.minimumWithdrawalFee()) {
       // Should revert for invalid amount
-      vm.expectRevert(BeefyVaultPSMMainnet.InvalidAmount.selector);
+      vm.expectRevert(BeefyVaultPSMV2.InvalidAmount.selector);
       _psm.scheduleWithdraw(withdrawAmount);
     } else {
       // Should succeed
@@ -398,21 +398,21 @@ contract PsmMainnetAvailableForWithdrawalView is MainnetIntegrationBase {
 
 contract PsmMainnetAdminSuite is MainnetIntegrationBase {
   function test_TransferOwnership() public {
-    vm.expectRevert(BeefyVaultPSMMainnet.NewOwnerCannotBeZeroAddress.selector);
+    vm.expectRevert(BeefyVaultPSMV2.NewOwnerCannotBeZeroAddress.selector);
     _psm.transferOwnership(address(0x0));
 
     _psm.transferOwnership(address(_user));
     assertEq(_psm.owner(), address(_user));
 
-    vm.expectRevert(BeefyVaultPSMMainnet.CallerIsNotOwner.selector);
+    vm.expectRevert(BeefyVaultPSMV2.CallerIsNotOwner.selector);
     _psm.transferOwnership(address(0));
   }
 
   function test_Pausing() public {
-    _psm.setPaused(BeefyVaultPSMMainnet.deposit.selector, true);
+    _psm.setPaused(BeefyVaultPSMV2.deposit.selector, true);
 
     _usdcToken.approve(address(_psm), 1000 * 10 ** 6);
-    vm.expectRevert(BeefyVaultPSMMainnet.ContractIsPaused.selector);
+    vm.expectRevert(BeefyVaultPSMV2.ContractIsPaused.selector);
     _psm.deposit(1000 * 10 ** 6);
   }
 

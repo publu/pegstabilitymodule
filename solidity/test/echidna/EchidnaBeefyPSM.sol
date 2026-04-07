@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {BeefyVaultPSM} from 'contracts/BeefyVaultDDW.sol';
+import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
 import {IERC20} from '../../interfaces/IERC20.sol';
 
 /// @title MockERC20Echidna
@@ -125,17 +125,17 @@ contract MockBeefyVault {
 }
 
 /// @title EchidnaBeefyPSM
-/// @notice Echidna property test harness for BeefyVaultPSM (Base version)
+/// @notice Echidna property test harness for BeefyVaultPSMV2 (Base version)
 /// @dev Uses hevm.etch to deploy mock MAI at the hardcoded MAI_ADDRESS,
 ///      hevm.warp to advance time for withdrawal epochs,
 ///      and hevm.prank to impersonate fuzz senders for multi-actor testing.
 contract EchidnaBeefyPSM {
   // HEVM cheatcode interface (Echidna 2.x)
   address internal constant HEVM = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
-  // Hardcoded MAI address in BeefyVaultPSM (Base)
+  // Hardcoded MAI address in BeefyVaultPSMV2 (Base)
   address internal constant MAI_BASE = 0xbf1aeA8670D2528E08334083616dD9C5F3B087aE;
 
-  BeefyVaultPSM internal psm;
+  BeefyVaultPSMV2 internal psm;
   MockERC20Echidna internal usdc;
   MockERC20Echidna internal mai;
   MockBeefyVault internal vault;
@@ -174,8 +174,8 @@ contract EchidnaBeefyPSM {
 
     // Deploy mock Beefy vault and PSM
     vault = new MockBeefyVault(usdc);
-    psm = new BeefyVaultPSM();
-    psm.initialize(address(vault), 0, 30); // 0% deposit, 30bps withdrawal
+    psm = new BeefyVaultPSMV2();
+    psm.initialize(address(vault), 0, 30, MAI_BASE); // 0% deposit, 30bps withdrawal, mock MAI
     psm.setGuardian(GUARDIAN, true);
     psm.transferOwnership(OWNER);
     require(psm.guardians(GUARDIAN), 'guardian handoff failed');

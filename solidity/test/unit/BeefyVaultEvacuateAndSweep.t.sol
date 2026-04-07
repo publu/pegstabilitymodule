@@ -4,9 +4,9 @@ pragma solidity 0.8.19;
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {Test} from 'forge-std/Test.sol';
 import {IBeefy} from '../../interfaces/IBeefy.sol';
-import {BeefyVaultPSM} from 'contracts/BeefyVaultDDW.sol';
+import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
 import {console} from 'forge-std/console.sol';
-import {BeefyIntegrationBase} from '../integration/BeefyIntegrationBase.sol';
+import {BeefyV2IntegrationBase} from '../integration/BeefyV2IntegrationBase.sol';
 
 /// @title RevertingBeefyMock
 /// @notice IBeefy mock that reverts on withdrawAll — for testing evacuateVault failure path
@@ -77,7 +77,7 @@ contract RevertingBeefyMock {
 //  Base Beefy PSM Evacuate & Sweep Tests (fork-based)
 // ═══════════════════════════════════════════════════════════
 
-contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
+contract BeefyVaultPSMEvacuateAndSweepTest is BeefyV2IntegrationBase {
   event VaultEvacuated(address indexed _caller, uint256 _sharesRedeemed);
   event Swept(address indexed _caller, uint256 _amount);
   event RefundClaimed(address indexed _user, uint256 _maiAmount);
@@ -138,13 +138,13 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
 
   function test_setGuardian_revertsForZeroAddress() public {
     vm.prank(_owner);
-    vm.expectRevert(BeefyVaultPSM.GuardianCannotBeZeroAddress.selector);
+    vm.expectRevert(BeefyVaultPSMV2.GuardianCannotBeZeroAddress.selector);
     _psm.setGuardian(address(0), true);
   }
 
   function test_setGuardian_nonOwnerReverts() public {
     vm.prank(random);
-    vm.expectRevert(BeefyVaultPSM.CallerIsNotOwner.selector);
+    vm.expectRevert(BeefyVaultPSMV2.CallerIsNotOwner.selector);
     _psm.setGuardian(random, true);
   }
 
@@ -189,7 +189,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
 
   function test_evacuateVault_randomAddressReverts() public {
     vm.prank(random);
-    vm.expectRevert(BeefyVaultPSM.CallerIsNotGuardianOrOwner.selector);
+    vm.expectRevert(BeefyVaultPSMV2.CallerIsNotGuardianOrOwner.selector);
     _psm.evacuateVault();
   }
 
@@ -213,7 +213,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
 
     vm.startPrank(_user);
     _usdbcToken.approve(address(_psm), 1000 * 10 ** 6);
-    vm.expectRevert(BeefyVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(BeefyVaultPSMV2.ContractIsPaused.selector);
     _psm.deposit(1000 * 10 ** 6);
     vm.stopPrank();
   }
@@ -226,7 +226,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
 
     vm.startPrank(_user);
     _maiToken.approve(address(_psm), 1000 * 10 ** 18);
-    vm.expectRevert(BeefyVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(BeefyVaultPSMV2.ContractIsPaused.selector);
     _psm.scheduleWithdraw(1000 * 10 ** 18);
     vm.stopPrank();
   }
@@ -254,12 +254,12 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
 
     // Deploy a fresh PSM with the reverting vault
     vm.startPrank(_owner);
-    BeefyVaultPSM revertPsm = new BeefyVaultPSM();
+    BeefyVaultPSMV2 revertPsm = new BeefyVaultPSMV2();
     deal(address(_maiToken), address(revertPsm), 10_000_000 * 10 ** 18);
 
     // Need to make the mock return proper decimals
     // The mock has decimals=18, underlying USDC=6, so decimalDifference=12 (correct)
-    revertPsm.initialize(address(revertingVault), 100, 100);
+    revertPsm.initialize(address(revertingVault), 100, 100, address(_maiToken));
 
     // Give the mock some balance to simulate shares
     deal(address(_usdbcToken), _owner, 1000 * 10 ** 6);
@@ -308,7 +308,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
 
   function test_claimRefund_revertsWhenNotEvacuated() public {
     vm.prank(_user);
-    vm.expectRevert(BeefyVaultPSM.NotEvacuated.selector);
+    vm.expectRevert(BeefyVaultPSMV2.NotEvacuated.selector);
     _psm.claimRefund();
   }
 
@@ -317,7 +317,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
     _psm.evacuateVault();
 
     vm.prank(_user);
-    vm.expectRevert(BeefyVaultPSM.NoWithdrawalScheduled.selector);
+    vm.expectRevert(BeefyVaultPSMV2.NoWithdrawalScheduled.selector);
     _psm.claimRefund();
   }
 
@@ -365,13 +365,13 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
     _psm.evacuateVault();
 
     vm.prank(_owner);
-    vm.expectRevert(BeefyVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(BeefyVaultPSMV2.ContractIsPaused.selector);
     _psm.sweep();
   }
 
   function test_sweep_revertsWhenNoBalance() public {
     vm.prank(_owner);
-    vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
+    vm.expectRevert(BeefyVaultPSMV2.InvalidAmount.selector);
     _psm.sweep();
   }
 
@@ -379,7 +379,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
     deal(address(_usdbcToken), address(_psm), 1000 * 10 ** 6);
 
     vm.prank(random);
-    vm.expectRevert(BeefyVaultPSM.CallerIsNotOwner.selector);
+    vm.expectRevert(BeefyVaultPSMV2.CallerIsNotOwner.selector);
     _psm.sweep();
   }
 
@@ -484,7 +484,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
     assertGt(usdcInPsm, 0, 'PSM should hold USDC post-evacuation');
 
     vm.prank(_owner);
-    vm.expectRevert(BeefyVaultPSM.UpgradeNotScheduled.selector);
+    vm.expectRevert(BeefyVaultPSMV2.UpgradeNotScheduled.selector);
     _psm.transferToken(address(_usdbcToken), _owner, usdcInPsm);
   }
 
@@ -518,7 +518,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
     // Trying to transfer more MAI than available (above totalQueuedMAI) should revert
     uint256 psmMaiBalance = _maiToken.balanceOf(address(_psm));
     vm.prank(_owner);
-    vm.expectRevert(BeefyVaultPSM.NotEnoughLiquidity.selector);
+    vm.expectRevert(BeefyVaultPSMV2.NotEnoughLiquidity.selector);
     _psm.transferToken(address(_maiToken), _owner, psmMaiBalance);
   }
 
@@ -533,7 +533,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
     uint256 available = psmMaiBalance - withdrawMAI;
 
     vm.prank(_owner);
-    vm.expectRevert(BeefyVaultPSM.NotEnoughLiquidity.selector);
+    vm.expectRevert(BeefyVaultPSMV2.NotEnoughLiquidity.selector);
     _psm.transferToken(address(_maiToken), _owner, psmMaiBalance);
 
     uint256 ownerBefore = _maiToken.balanceOf(_owner);
@@ -633,7 +633,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
 
     vm.startPrank(_user);
     _maiToken.approve(address(_psm), dustMAI);
-    vm.expectRevert(BeefyVaultPSM.InvalidAmountAfterFee.selector);
+    vm.expectRevert(BeefyVaultPSMV2.InvalidAmountAfterFee.selector);
     _psm.scheduleWithdraw(dustMAI);
     vm.stopPrank();
   }
@@ -658,7 +658,7 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
 
     // withdraw() should be blocked by pausable modifier post-evacuation
     vm.prank(_user);
-    vm.expectRevert(BeefyVaultPSM.ContractIsPaused.selector);
+    vm.expectRevert(BeefyVaultPSMV2.ContractIsPaused.selector);
     _psm.withdraw();
   }
 
@@ -702,13 +702,13 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyIntegrationBase {
 
     // Try forceSettle immediately — should revert
     vm.prank(_owner);
-    vm.expectRevert(BeefyVaultPSM.SettlementTooEarly.selector);
+    vm.expectRevert(BeefyVaultPSMV2.SettlementTooEarly.selector);
     _psm.forceSettle(_user);
   }
 
   function test_forceSettle_revertsWhenNotEvacuated() public {
     vm.prank(_owner);
-    vm.expectRevert(BeefyVaultPSM.NotEvacuated.selector);
+    vm.expectRevert(BeefyVaultPSMV2.NotEvacuated.selector);
     _psm.forceSettle(_user);
   }
 

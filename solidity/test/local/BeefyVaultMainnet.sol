@@ -6,10 +6,10 @@ import {Test} from 'forge-std/Test.sol';
 import {IBeefy} from '../../interfaces/IBeefy.sol';
 import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
 import 'forge-std/console.sol';
-import {MainnetIntegrationBase} from '../integration/MainnetIntegrationBase.sol';
+import {MainnetLocalBase} from './MainnetLocalBase.sol';
 import {StdCheats} from 'forge-std/StdCheats.sol';
 
-contract PsmMainnetConstructor is MainnetIntegrationBase {
+contract PsmMainnetConstructor is MainnetLocalBase {
   function test_OwnerSet() public {
     BeefyVaultPSMV2 newPsm = new BeefyVaultPSMV2();
     newPsm.initialize(address(_mooToken), 100, 100, address(_maiToken));
@@ -61,7 +61,7 @@ contract PsmMainnetConstructor is MainnetIntegrationBase {
   }
 }
 
-contract PsmMainnetMinimumReservesConfig is MainnetIntegrationBase {
+contract PsmMainnetMinimumReservesConfig is MainnetLocalBase {
   event MinimumReservesUpdated(uint256 _oldMinimumReserves, uint256 _newMinimumReserves);
 
   function test_SetMinimumReservesOnlyOwner() public {
@@ -105,7 +105,7 @@ contract PsmMainnetMinimumReservesConfig is MainnetIntegrationBase {
   }
 }
 
-contract PsmMainnetMinimumReservesEnforcement is MainnetIntegrationBase {
+contract PsmMainnetMinimumReservesEnforcement is MainnetLocalBase {
   function test_WithdrawBlockedByMinimumReserves() public {
     // Deposit 1000 USDC
     uint256 depositAmount = 1000 * 10 ** 6;
@@ -285,7 +285,7 @@ contract PsmMainnetMinimumReservesEnforcement is MainnetIntegrationBase {
   }
 }
 
-contract PsmMainnetAvailableForWithdrawalView is MainnetIntegrationBase {
+contract PsmMainnetAvailableForWithdrawalView is MainnetLocalBase {
   function test_AvailableForWithdrawalInitiallyZero() public {
     assertEq(_psm.availableForWithdrawal(), 0);
   }
@@ -410,7 +410,7 @@ contract PsmMainnetAvailableForWithdrawalView is MainnetIntegrationBase {
   }
 }
 
-contract PsmMainnetAdminSuite is MainnetIntegrationBase {
+contract PsmMainnetAdminSuite is MainnetLocalBase {
   function test_TransferOwnership() public {
     vm.expectRevert(BeefyVaultPSMV2.NewOwnerCannotBeZeroAddress.selector);
     _psm.transferOwnership(address(0x0));
@@ -453,7 +453,7 @@ contract PsmMainnetAdminSuite is MainnetIntegrationBase {
   }
 }
 
-contract PsmMainnetDepositWithdrawCycle is MainnetIntegrationBase {
+contract PsmMainnetDepositWithdrawCycle is MainnetLocalBase {
   function test_FullDepositWithdrawCycleWithMinReserves() public {
     // Set minimum reserves
     _psm.setMinimumReserves(100 * 10 ** 6);

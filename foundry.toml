@@ -22,7 +22,26 @@ evm_version = "shanghai"
 via_ir = true
 out = 'out-via-ir'
 
+[profile.local]
+# Default profile for the sub-5s mock-based test loop. No fork, no RPC.
+# Used by `yarn test` and `yarn test:local`.
+#
+# `src = 'solidity/test'` scopes compilation to the test tree, dodging
+# the pre-existing orphan contracts (QiDaoOFT.sol needs OZ ^0.8.20,
+# stableQiVault.sol needs solc =0.8.11). `test = 'solidity/test/local'`
+# constrains the test runner to the local/ subtree, so parked fork-based
+# suites under unit/ and integration/ compile but don't run.
+src = 'solidity/test'
+test = 'solidity/test/local'
+via_ir = true
+out = 'out-via-ir'
+
 [profile.test]
+# Legacy escape hatch for the parked fork-based tests (DAI, Metis, zkEVM PSMs).
+# Not used by the default `yarn test` loop. Run manually via
+# `FOUNDRY_PROFILE=test forge test ...` or `yarn test:fork` when you need to
+# exercise the parked suites. Requires MAINNET_RPC + the [rpc_endpoints] entries
+# below. Slated for deletion if/when the parked suites are retired or migrated.
 via_ir = true
 out = 'out-via-ir'
 src = 'solidity/test'

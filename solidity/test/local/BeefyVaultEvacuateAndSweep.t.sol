@@ -6,7 +6,7 @@ import {Test} from 'forge-std/Test.sol';
 import {IBeefy} from '../../interfaces/IBeefy.sol';
 import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
 import {console} from 'forge-std/console.sol';
-import {BeefyV2IntegrationBase} from '../integration/BeefyV2IntegrationBase.sol';
+import {BeefyV2LocalBase} from './BeefyV2LocalBase.sol';
 
 /// @title RevertingBeefyMock
 /// @notice IBeefy mock that reverts on withdrawAll — for testing evacuateVault failure path
@@ -77,7 +77,7 @@ contract RevertingBeefyMock {
 //  Base Beefy PSM Evacuate & Sweep Tests (fork-based)
 // ═══════════════════════════════════════════════════════════
 
-contract BeefyVaultPSMEvacuateAndSweepTest is BeefyV2IntegrationBase {
+contract BeefyVaultPSMEvacuateAndSweepTest is BeefyV2LocalBase {
   event VaultEvacuated(address indexed _caller, uint256 _sharesRedeemed);
   event Swept(address indexed _caller, uint256 _amount);
   event RefundClaimed(address indexed _user, uint256 _maiAmount);

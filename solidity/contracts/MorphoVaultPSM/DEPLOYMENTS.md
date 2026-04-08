@@ -8,12 +8,12 @@
 
 ## Versions
 
-- **V1** (`V1.sol`, `contract MorphoVaultPSM`) — original Morpho-vault PSM. Base + Polygon deployments. Frozen.
-- **V2** (`V2.sol`, `contract MorphoVaultPSMV2`) — adds evacuate/sweep, claimRefund, multi-guardian role, `totalQueuedMAI` exact-owed bookkeeping, dust-withdrawal rejection, RedeemFailed event pinning. **In-development — not yet deployed.** Editable until first deployment.
+- **V1** (`V1.sol`, `contract MorphoVaultPSM`) — original Morpho-vault PSM. Base + Polygon deployments. Frozen baseline. No active test coverage — raw Morpho PSM support is being wound down and `V1.sol` remains only because it is live on-chain.
 
 ## Notes
 
-- V2 is the primary subject of the evacuate/sweep work that landed in PR #4 (`publu/pegstabilitymodule#4`). It is currently undeployed.
-- Test files for V2: `solidity/test/unit/MorphoVaultPSMEvacuateAndSweep.t.sol`, `solidity/test/integration/MorphoEvacuateSweepIntegration.t.sol`, `solidity/test/invariant/MorphoVaultPSMInvariant.sol`.
+- **Raw Morpho PSM is being retired.** `V2.sol` (the evacuate/sweep work from PR #4) was deleted along with all Morpho-related test files on 2026-04-08. `V1.sol` stays because the three deployments listed above are live and cannot be rolled back.
+- Do not add new Morpho PSM versions to this folder. Any future Morpho integration should go through a new contract family.
+- No test files exist for this contract. If a production incident requires touching `V1.sol`, write fresh tests as part of that incident work.
 
-_Last updated: 2026-04-07 (post V1/V2 split)._
+_Last updated: 2026-04-08 (raw Morpho PSM retired, V2 + test files deleted)._

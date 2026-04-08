@@ -11,9 +11,9 @@
   "license": "MIT",
   "author": "Wonderland",
   "scripts": {
-    "build": "forge build",
+    "build": "FOUNDRY_PROFILE=local forge build",
     "build:optimized": "FOUNDRY_PROFILE=optimized forge build",
-    "coverage": "forge coverage --match-contract Unit",
+    "coverage": "FOUNDRY_PROFILE=local forge coverage --match-path 'solidity/test/local/**/*.sol'",
     "deploy:goerli": "bash -c 'source .env && forge script DeployGoerli --rpc-url $GOERLI_RPC --broadcast --private-key $GOERLI_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY'",
     "deploy:mainnet": "bash -c 'source .env && forge script DeployMainnet --rpc-url $MAINNET_RPC --broadcast --private-key $MAINNET_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY'",
     "lint:check": "yarn lint:sol-tests && yarn lint:sol-logic && forge fmt --check",
@@ -21,10 +21,9 @@
     "lint:sol-logic": "solhint -c .solhint.json 'solidity/contracts/**/*.sol' 'solidity/interfaces/**/*.sol'",
     "lint:sol-tests": "solhint 'solidity/test/**/*.sol'",
     "prepare": "husky install",
-    "test": "forge test -vvv",
-    "test:integration": "forge test --match-contract Integration -vvv",
-    "test:unit": "forge test --match-contract Unit -vvv",
-    "test:unit:deep": "FOUNDRY_FUZZ_RUNS=5000 yarn test:unit"
+    "test": "FOUNDRY_PROFILE=local forge test --match-path 'solidity/test/local/**/*.sol'",
+    "test:local": "FOUNDRY_PROFILE=local forge test --match-path 'solidity/test/local/**/*.sol'",
+    "test:fork": "FOUNDRY_PROFILE=test forge test --match-path 'solidity/test/unit/**/*.sol'"
   },
   "lint-staged": {
     "*.{js,css,md,ts,sol}": "forge fmt",

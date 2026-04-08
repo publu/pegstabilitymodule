@@ -2,9 +2,9 @@
 pragma solidity 0.8.19;
 
 import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
-import {MainnetIntegrationBase} from '../integration/MainnetIntegrationBase.sol';
+import {MainnetLocalBase} from './MainnetLocalBase.sol';
 
-contract BeefyVaultPSMV2EvacuateAndSweepRegressionTest is MainnetIntegrationBase {
+contract BeefyVaultPSMV2EvacuateAndSweepRegressionTest is MainnetLocalBase {
   address internal guardian = makeAddr('guardian');
 
   function setUp() public override {
@@ -42,7 +42,9 @@ contract BeefyVaultPSMV2EvacuateAndSweepRegressionTest is MainnetIntegrationBase
     vm.prank(_owner);
     _psm.withdrawMAI();
 
-    assertEq(_maiToken.balanceOf(_owner) - ownerBefore, maiBalance, 'Owner should receive all MAI when nothing is queued');
+    assertEq(
+      _maiToken.balanceOf(_owner) - ownerBefore, maiBalance, 'Owner should receive all MAI when nothing is queued'
+    );
     assertEq(_maiToken.balanceOf(address(_psm)), 0, 'PSM should hold no MAI when nothing is queued');
   }
 

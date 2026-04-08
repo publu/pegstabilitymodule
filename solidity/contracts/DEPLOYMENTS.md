@@ -16,15 +16,15 @@ Cross-reference of every PSM contract in `solidity/contracts/`, the versions def
 |---|---|---|---|---|---|
 | `BeefyVaultPSM` | [`BeefyVaultPSM/`](./BeefyVaultPSM/DEPLOYMENTS.md) | V1, V2 | V1, V2 | — | Base (V1 ×4), Ethereum Mainnet (V2 ×2) |
 | `BeefyVaultPSMPoly` | [`BeefyVaultPSMPoly/`](./BeefyVaultPSMPoly/DEPLOYMENTS.md) | V1 | V1 | — | Polygon (V1 ×1) |
-| `MorphoVaultPSM` | [`MorphoVaultPSM/`](./MorphoVaultPSM/DEPLOYMENTS.md) | V1, V2 | V1 | V2 | Base (V1 ×2), Polygon (V1 ×1) |
+| `MorphoVaultPSM` | [`MorphoVaultPSM/`](./MorphoVaultPSM/DEPLOYMENTS.md) | V1 | V1 | — | Base (V1 ×2), Polygon (V1 ×1) — retired, no new work |
 | `DAIVaultPSM` | [`DAIVaultPSM/`](./DAIVaultPSM/DEPLOYMENTS.md) | V1 | V1 | — | Scroll (V1 ×1) |
 | `USDCVaultPSM` | [`USDCVaultPSM/`](./USDCVaultPSM/DEPLOYMENTS.md) | V1 | V1 | — | Polygon zkEVM (V1 ×1) |
 | `USDCVaultDDW` | [`USDCVaultDDW/`](./USDCVaultDDW/DEPLOYMENTS.md) | V1 | V1 | — | Metis (V1 ×1) |
 
 ## Quick stats
 
-- **6 PSM contract families**, **8 distinct versions**, **13 live deployments** across 6 chains.
-- **1 in-development version**: `MorphoVaultPSM/V2.sol` (the evacuate/sweep work from PR #4, undeployed).
+- **6 PSM contract families**, **7 distinct versions**, **13 live deployments** across 6 chains.
+- **0 in-development versions.** `MorphoVaultPSM/V2.sol` (the evacuate/sweep work from PR #4) was deleted on 2026-04-08 as raw Morpho PSM support is being wound down.
 
 ## Out-of-folder files
 
@@ -42,4 +42,4 @@ When you deploy a new contract version:
 2. If a new version was promoted from in-development to frozen, update the **Frozen** / **In-development** columns in the table above.
 3. Update **Quick stats**.
 
-_Last updated: 2026-04-07 (initial V1/V2 split refactor)._
+_Last updated: 2026-04-08 (retired MorphoVaultPSM V2 and raw-Morpho test coverage)._

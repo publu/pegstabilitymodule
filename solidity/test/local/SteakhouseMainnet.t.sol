@@ -3,13 +3,15 @@ pragma solidity 0.8.19;
 
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
-import {MainnetIntegrationBase} from './MainnetIntegrationBase.sol';
+import {MainnetLocalBase} from './MainnetLocalBase.sol';
 
 /// @title SteakhouseMainnet
-/// @notice Integration tests for Beefy Steakhouse Smokehouse vault PSM on Ethereum mainnet
-contract SteakhouseMainnet is MainnetIntegrationBase {
-  // Uses default _mooTokenAddress() which returns Smokehouse: 0x562Ea6FfFD1293b9433E7b81A2682C31892ea013
-
+/// @notice Behavior tests for the Beefy Steakhouse Smokehouse vault PSM flow.
+/// @dev The "Smokehouse" vault is a standard Beefy mooToken that happens to
+///      wrap a Morpho market underneath. At the interface level it's just
+///      IBeefy, so `MainnetLocalBase`'s generic `MockBeefyVault` setup covers
+///      the full test surface — no Smokehouse-specific mock, no virtual hook.
+contract SteakhouseMainnet is MainnetLocalBase {
   function test_deposit_convertsUsdcToMai() public {
     uint256 depositAmount = 1000 * 10 ** 6; // 1000 USDC
     _usdcToken.approve(address(_psm), depositAmount);

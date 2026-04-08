@@ -371,14 +371,17 @@ contract PsmMainnetAvailableForWithdrawalView is MainnetIntegrationBase {
     uint256 fee = _psm.calculateFee(depositAmount, true);
     uint256 totalStable = depositAmount - fee;
 
-    // Only queue if we have liquidity
+    // Only queue if we have liquidity AND the underlying-decimal queueAmount
+    // strictly exceeds the contract's minimumWithdrawalFee (also in 6 decimals).
+    // The previous check incorrectly compared queueMAI (18-decimal) against
+    // minimumWithdrawalFee (6-decimal), letting tiny amounts through that the
+    // V2 contract then rejects with InvalidAmountAfterFee at scheduleWithdraw:184.
     queueAmount = bound(queueAmount, 0, totalStable / 2);
-    if (queueAmount >= _psm.minimumWithdrawalFee() / 10 ** 12) {
+    uint256 minWithdrawal = _psm.minimumWithdrawalFee(); // 6 decimals
+    if (queueAmount > minWithdrawal) {
       uint256 queueMAI = queueAmount * 10 ** 12;
       _maiToken.approve(address(_psm), queueMAI);
-      if (queueMAI >= _psm.minimumWithdrawalFee()) {
-        _psm.scheduleWithdraw(queueMAI);
-      }
+      _psm.scheduleWithdraw(queueMAI);
     }
 
     uint256 queued = _psm.totalQueuedLiquidity();
@@ -391,7 +394,18 @@ contract PsmMainnetAvailableForWithdrawalView is MainnetIntegrationBase {
     if (liquidity <= minReserves) {
       assertEq(available, 0, 'Available should be 0 when liquidity <= minReserves');
     } else {
-      assertEq(available, liquidity - minReserves, 'Available calculation incorrect');
+      // Mirror BeefyVaultPSMV2.availableForWithdrawal() fee-floor guard:
+      // when the post-reserve liquidity wouldn't survive the withdrawal fee
+      // (e.g. dust amounts where minimumWithdrawalFee > _available), the view
+      // returns 0 by design instead of returning a value users can't actually
+      // withdraw.
+      uint256 expectedAvailable = liquidity - minReserves;
+      uint256 expectedFee = _psm.calculateFee(expectedAvailable, false);
+      if (expectedAvailable <= expectedFee) {
+        assertEq(available, 0, 'Available should be 0 when post-reserve amount is consumed by fee floor');
+      } else {
+        assertEq(available, expectedAvailable, 'Available calculation incorrect');
+      }
     }
   }
 }

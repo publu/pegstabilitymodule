@@ -365,15 +365,17 @@ contract PsmWithdrawSuite is PsmWithdrawalConstructor {
     console.log('totalQueuedLiquidity:       ', _psm.totalQueuedLiquidity());
     console.log('=====================================');
 
-    // Schedule the withdrawal
-    uint256 _toWithdrawCheck = _withdrawAmount / 1e12;
-    uint256 _feeCheck = _psm.calculateFee(_toWithdrawCheck, false);
-    if (_toWithdrawCheck <= _feeCheck) {
-      console.log('Withdraw amount rounds to dust after fee');
-      vm.expectRevert(BeefyVaultPSM.InvalidAmountAfterFee.selector);
-      _psm.scheduleWithdraw(_withdrawAmount);
-      return;
-    } else if (_withdrawAmount < _psm.minimumWithdrawalFee() || _withdrawAmount > _psm.maxWithdraw()) {
+    // Schedule the withdrawal.
+    //
+    // NOTE: V1 BeefyVaultPSM (the deployed Base bytecode) does NOT have the
+    // dust-amount `InvalidAmountAfterFee` check on scheduleWithdraw — that
+    // guard was added in V2 (BeefyVaultPSMV2.sol:184). On V1, scheduling a
+    // withdrawal whose underlying-decimal value is consumed entirely by the
+    // fee floor succeeds, and the user simply receives 0 at execute-time.
+    // The corresponding V2 test (BeefyVaultEvacuateAndSweep.t.sol or
+    // BeefyVaultMainnet.sol fuzz tests) covers the explicit-revert path
+    // against V2/V3.
+    if (_withdrawAmount < _psm.minimumWithdrawalFee() || _withdrawAmount > _psm.maxWithdraw()) {
       console.log('Withdraw Amount too small or too large');
       vm.expectRevert(BeefyVaultPSM.InvalidAmount.selector);
       _psm.scheduleWithdraw(_withdrawAmount);

@@ -7,7 +7,6 @@
 | V1 | `V1.sol` | Base | 8453 | `0x2ed7b0027a5657b5941e1c6c62ee1522049132f4` | `DeployBeefySteakhouseBase.s.sol` | `0x36e585bda9b847770352eec26895710b043c2eaff58a78eacf20260399c62b54` | Steakhouse |
 | V1 | `V1.sol` | Base | 8453 | `0xD7Acff6De10A71710C05132eB771e96630Ae132b` | `DeployDDW.sol` | _(missing in broadcast record)_ | DDW |
 | V2 | `V2.sol` | Ethereum Mainnet | 1 | `0x2bec9d381e1081185f4f27bd0b9dd90a5b08826b` | `DeployBeefySteakhouseMainnet.s.sol` | `0x700b14b4991e4b1ec383597919efe5221c519ae4d97fbafcaa70768a39ee1c13` | Steakhouse |
-| V2 | `V2.sol` | Ethereum Mainnet | 1 | `0xbc37e88a61bd31a5c5fc42ec09ad481f8a5f741a` | `DeployBeefyGauntletMainnet.s.sol` | `0xf846fa351fc81595a886be460a305d11fe363bc7c43dc6192a32893e9c4e04a0` | Gauntlet |
 
 ## Versions
 

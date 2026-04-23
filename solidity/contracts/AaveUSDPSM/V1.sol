@@ -131,7 +131,7 @@ contract AaveUSDPSMV1 {
 
     depositFee = _depositFee;
     withdrawalFee = _withdrawalFee;
-    minimumDepositFee = 1_000_000; // 1 USDC (6 decimals)
+    minimumDepositFee = 0; // 1 USDC (6 decimals)
     minimumWithdrawalFee = 1_000_000; // 1 USDC
 
     IAToken _aToken = IAToken(_gem);

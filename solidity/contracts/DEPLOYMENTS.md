@@ -19,22 +19,23 @@ Cross-reference of every PSM contract in `solidity/contracts/`, the versions def
 | `MorphoVaultPSM` | [`MorphoVaultPSM/`](./MorphoVaultPSM/DEPLOYMENTS.md) | V1 | V1 | — | Base (V1 ×2), Polygon (V1 ×1) — retired, no new work |
 | `AaveUSDPSM` | [`AaveUSDPSM/`](./AaveUSDPSM/DEPLOYMENTS.md) | V1 | — | V1 | — (Polygon deploy pending) |
 | `DAIVaultPSM` | [`DAIVaultPSM/`](./DAIVaultPSM/DEPLOYMENTS.md) | V1 | V1 | — | Scroll (V1 ×1) |
-| `USDCVaultPSM` | [`USDCVaultPSM/`](./USDCVaultPSM/DEPLOYMENTS.md) | V1 | V1 | — | Polygon zkEVM (V1 ×1) |
+| `USDCVaultPSM` | [`USDCVaultPSM/`](./USDCVaultPSM/DEPLOYMENTS.md) | V1, V2 | V1, V2 | — | Polygon zkEVM (V1 ×1, V2 ×1) |
 | `USDCVaultDDW` | [`USDCVaultDDW/`](./USDCVaultDDW/DEPLOYMENTS.md) | V1 | V1 | — | Metis (V1 ×1) |
 
 ## Quick stats
 
-- **7 PSM contract families**, **8 distinct versions**, **13 live deployments** across 6 chains.
+- **7 PSM contract families**, **9 distinct versions**, **14 live deployments** across 6 chains.
 - **1 in-development version**: `AaveUSDPSM/V1` (Polygon, deploy pending).
 
 ## Out-of-folder files
 
-The following files in `solidity/contracts/` are NOT deployed via this repo and are kept at root rather than in version-folders:
+Upstream/orphan contracts that the default `forge build` must not try to compile live in [`solidity/_orphans/`](../_orphans/) with a `.sol.bak` extension. They're not deployed via this repo and are kept around for historical reference only. They got moved there (2026-04-08) so the default profile can compile cleanly without per-command `--skip` hacks.
 
-- `EditableERC20.sol` — orphan upstream contract, not compiled by `[profile.test]` and not deployed
-- `QiDaoOFT.sol` — orphan upstream contract, requires unbundled `@layerzerolabs/solidity-examples`
-- `stableQiVault.sol` — flattened basescan dump pinned to solc `0.8.11`, not compatible with project's `0.8.19`
-- `IBeefyVaultDDW.sol` — interface; will be moved into `solidity/interfaces/` as part of a separate cleanup
+- `_orphans/EditableERC20.sol.bak` — upstream contract, imports an OZ version our toolchain can't reach
+- `_orphans/QiDaoOFT.sol.bak` — upstream contract, requires unbundled `@layerzerolabs/solidity-examples`
+- `_orphans/stableQiVault.sol.bak` — flattened basescan dump pinned to solc `0.8.11`, not compatible with project's `0.8.19`
+
+`IBeefyVaultDDW.sol` (still in `solidity/contracts/`) is an interface; will be moved into `solidity/interfaces/` as part of a separate cleanup.
 
 ## Updating this index
 

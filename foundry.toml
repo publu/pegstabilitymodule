@@ -9,7 +9,12 @@ multiline_func_header = 'params_first'
 
 [profile.default]
 solc_version = '0.8.19'
-src = 'solidity'
+# `src` is narrowed to `solidity/contracts` so `forge build` doesn't try to walk
+# `solidity/_orphans/` (where we park upstream contracts that can't compile against
+# our toolchain — see `solidity/contracts/DEPLOYMENTS.md` for the list). Scripts
+# and tests still compile correctly because `forge script` resolves its target
+# explicitly and `test` below points at the test tree.
+src = 'solidity/contracts'
 test = 'solidity/test'
 out = 'out'
 libs = ["node_modules", "lib"]
@@ -23,14 +28,12 @@ via_ir = true
 out = 'out-via-ir'
 
 [profile.local]
-# Default profile for the sub-5s mock-based test loop. No fork, no RPC.
-# Used by `yarn test` and `yarn test:local`.
+# Sub-5s mock-based test loop. No fork, no RPC. Used by `yarn test` / `yarn test:local`.
 #
-# `src = 'solidity/test'` scopes compilation to the test tree, dodging
-# the pre-existing orphan contracts (QiDaoOFT.sol needs OZ ^0.8.20,
-# stableQiVault.sol needs solc =0.8.11). `test = 'solidity/test/local'`
-# constrains the test runner to the local/ subtree, so parked fork-based
-# suites under unit/ and integration/ compile but don't run.
+# `src = 'solidity/test'` scopes compilation to the test tree (skips contracts/
+# entirely when running local tests). `test = 'solidity/test/local'` constrains
+# the test runner to the local/ subtree, so parked fork-based suites under unit/
+# and integration/ compile but don't run.
 src = 'solidity/test'
 test = 'solidity/test/local'
 via_ir = true

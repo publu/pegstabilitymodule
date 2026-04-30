@@ -3,7 +3,7 @@
 | Version | Source | Chain | Chain ID | Address | Broadcast script | Tx hash | Notes |
 |---|---|---|---|---|---|---|---|
 | V1 | `V1.sol` | Polygon zkEVM | 1101 | `0xd7acff6de10a71710c05132eb771e96630ae132b` | `DeployUsdcZkevmVault.s.sol` | `0xfabbfbd207ec69385f77f999b0567f42352e46c0bee9c5425874233fe2d524cd` | zkEVM USDC vault |
-| V2 | `V2.sol` | Polygon zkEVM | 1101 | `0xC58F53B445e30826c87AD9cB8Ec2358665C6DAC6` | `DeployUsdcZkevmVaultV2.s.sol` | `0xc46bcf9c8810fff244de6629ebf6a550ec6b2be95c0008a3050fee6cfd0b9581` | One-way `close()` finality. 0 bps fee. Owner = deployer EOA pending multisig handoff. Init tx `0xfa9bfd1db021b14a49dc35f879e72f1685db5fc0704533acca5663bc8880da07`. Block 31655736. |
+| V2 | `V2.sol` | Polygon zkEVM | 1101 | `0xC58F53B445e30826c87AD9cB8Ec2358665C6DAC6` | `DeployUsdcZkevmVaultV2.s.sol` | `0xc46bcf9c8810fff244de6629ebf6a550ec6b2be95c0008a3050fee6cfd0b9581` | One-way `close()` finality. 0 bps fee. Owner = deployer EOA pending multisig handoff. Init tx `0xfa9bfd1db021b14a49dc35f879e72f1685db5fc0704533acca5663bc8880da07`. Block 31655736. Verified on OKLink: [`0xC58F…DAC6`](https://www.oklink.com/polygon-zkevm/address/0xC58F53B445e30826c87AD9cB8Ec2358665C6DAC6). |
 
 ## Versions
 

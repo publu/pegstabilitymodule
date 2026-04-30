@@ -1,7 +1,11 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-# 1. Build the contracts
-# 2. Stage build output 
-# 2. Lint and stage style improvements 
-yarn build && npx lint-staged
+# Lint and stage style improvements only.
+#
+# Full `forge build` was previously run here under FOUNDRY_PROFILE=local
+# (viaIR + full test tree, ~6 minutes per commit). Removed because the build
+# is already covered by CI on every PR, and `yarn test:local` implicitly
+# rebuilds before any local test run. Run `yarn build` manually when you
+# specifically want to validate compile without running tests.
+npx lint-staged

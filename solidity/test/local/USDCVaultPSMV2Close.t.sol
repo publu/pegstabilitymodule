@@ -203,14 +203,18 @@ contract USDCVaultPSMV2CloseTest is Test {
   // ---------- 5. modifier ordering vs setUpgrade ----------
 
   function test_modifierOrdering_closeBeatsSetUpgrade() public {
-    // setUpgrade → stopped=true, upgradeTime = now + 2 days. During the window,
-    // pausable does NOT block deposit because `now <= upgradeTime`.
+    // setUpgrade -> stopped=true, upgradeTime = now + 2 days.
     vm.prank(_owner);
     _psm.setUpgrade();
+    uint256 _upgradeTime = _psm.upgradeTime();
 
     // Close mid-window.
     _close(bytes32('low-tvl-sunset'));
     uint256 _ts = _psm.closedAt();
+
+    // After the pre-close upgrade timelock, pausable would revert with
+    // ContractIsPaused unless whenNotClosed wins first.
+    vm.warp(_upgradeTime + 1);
 
     _usdc.mint(_user, 1000 * 10 ** 6);
     vm.startPrank(_user);

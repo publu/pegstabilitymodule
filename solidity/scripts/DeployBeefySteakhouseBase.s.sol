@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import 'forge-std/Script.sol';
-import '../contracts/BeefyVaultDDW.sol';
+import 'contracts/BeefyVaultPSM/V1.sol';
 
 contract DeployBeefySteakhouseBase is Script {
   function run() external {

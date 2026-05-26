@@ -9,22 +9,58 @@ multiline_func_header = 'params_first'
 
 [profile.default]
 solc_version = '0.8.19'
-src = 'solidity'
+# `src` is narrowed to `solidity/contracts` so `forge build` doesn't try to walk
+# `solidity/_orphans/` (where we park upstream contracts that can't compile against
+# our toolchain — see `solidity/contracts/DEPLOYMENTS.md` for the list). Scripts
+# and tests still compile correctly because `forge script` resolves its target
+# explicitly and `test` below points at the test tree.
+src = 'solidity/contracts'
 test = 'solidity/test'
 out = 'out'
 libs = ["node_modules", "lib"]
 optimizer_runs = 10_000
 bytecode_hash = "none"
 cbor_metadata = false
+evm_version = "shanghai"
 
 [profile.optimized]
 via_ir = true
 out = 'out-via-ir'
 
+[profile.local]
+# Sub-5s mock-based test loop. No fork, no RPC. Used by `yarn test` / `yarn test:local`.
+#
+# `src = 'solidity/test'` scopes compilation to the test tree (skips contracts/
+# entirely when running local tests). `test = 'solidity/test/local'` constrains
+# the test runner to the local/ subtree, so parked fork-based suites under unit/
+# and integration/ compile but don't run.
+src = 'solidity/test'
+test = 'solidity/test/local'
+via_ir = true
+out = 'out-via-ir'
+
 [profile.test]
+# Legacy escape hatch for the parked fork-based tests (DAI, Metis, zkEVM PSMs).
+# Not used by the default `yarn test` loop. Run manually via
+# `FOUNDRY_PROFILE=test forge test ...` or `yarn test:fork` when you need to
+# exercise the parked suites. Requires MAINNET_RPC + the [rpc_endpoints] entries
+# below. Slated for deletion if/when the parked suites are retired or migrated.
 via_ir = true
 out = 'out-via-ir'
 src = 'solidity/test'
+
+[profile.steakhouse-prime]
+# Focused mainnet deploy/fork profile for BeefyVaultPSMV2 + Steakhouse Prime.
+# This intentionally excludes legacy exact-0.8.19 contracts so the deploy gate
+# can compile the target PSM artifact with Cancun-capable solc.
+src = 'solidity/contracts/BeefyVaultPSM/V2.sol'
+test = 'solidity/test/integration/BeefySteakhousePrimeMainnet.t.sol'
+out = 'out-steakhouse-prime'
+solc_version = '0.8.24'
+evm_version = 'cancun'
+optimizer_runs = 10_000
+bytecode_hash = "none"
+cbor_metadata = false
 
 [profile.docs]
 src = 'solidity/interfaces/'
@@ -37,3 +73,5 @@ mainnet = "${MAINNET_RPC}"
 base = "https://mainnet.base.org"
 linea = "https://1rpc.io/linea"
 metis = "https://andromeda.metis.io/?owner=1088"
+zkevm = "https://zkevm-rpc.com"
+polygon = "https://polygon.drpc.org"

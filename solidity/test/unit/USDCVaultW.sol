@@ -6,7 +6,7 @@ import {Test} from 'forge-std/Test.sol';
 import {console} from 'forge-std/console.sol';
 
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
-import {USDCVaultDDW} from 'contracts/USDCVaultDDW.sol';
+import {USDCVaultDDW} from 'contracts/USDCVaultDDW/V1.sol';
 import {MetisIntegrationBase} from '../integration/MetisIntegrationBase.sol';
 
 contract USDCVaultWithdrawalConstructor is MetisIntegrationBase {

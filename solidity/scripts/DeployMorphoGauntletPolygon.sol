@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import 'forge-std/Script.sol';
-import '../contracts/MorphoVaultPSM.sol';
+import 'contracts/MorphoVaultPSM/V1.sol';
 import '../scripts/MorphoVaultPSMPreflight.sol';
 
 contract MyScript is Script {

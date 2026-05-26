@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import 'forge-std/Script.sol';
-import {USDCVaultDDW} from '../contracts/USDCVaultDDW.sol';
+import {USDCVaultDDW} from 'contracts/USDCVaultDDW/V1.sol';
 
 contract MyScript is Script {
   function run() external {

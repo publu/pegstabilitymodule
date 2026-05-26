@@ -2,13 +2,13 @@
 pragma solidity ^0.8.19;
 
 import 'forge-std/Script.sol';
-import '../contracts/BeefyVaultPSMMainnet.sol';
+import 'contracts/BeefyVaultPSM/V2.sol';
 
 contract DeployBeefySteakhouseMainnet is Script {
   function run() external {
     vm.startBroadcast();
 
-    BeefyVaultPSMMainnet psm = new BeefyVaultPSMMainnet();
+    BeefyVaultPSMV2 psm = new BeefyVaultPSMV2();
     psm.initialize(
       0x562Ea6FfFD1293b9433E7b81A2682C31892ea013, // Beefy Steakhouse Smokehouse mooToken
       0, // depositFee: 0 bps (per QCI 250)

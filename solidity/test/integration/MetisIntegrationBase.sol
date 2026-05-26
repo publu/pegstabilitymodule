@@ -6,7 +6,7 @@ import {Test} from 'forge-std/Test.sol';
 
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 
-import {USDCVaultDDW} from 'contracts/USDCVaultDDW.sol';
+import {USDCVaultDDW} from 'contracts/USDCVaultDDW/V1.sol';
 
 contract MetisIntegrationBase is Test {
   uint256 internal constant _FORK_BLOCK = 20_694_285;

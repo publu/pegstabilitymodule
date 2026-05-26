@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity >=0.8.19 <0.9.0;
 
-import {IBeefy} from 'interfaces/IBeefy.sol';
-import {IERC20} from 'interfaces/IERC20.sol';
+import {IBeefyV2 as IBeefy, IERC20V2 as IERC20} from 'contracts/BeefyVaultPSM/V2Interfaces.sol';
 
 /// @title BeefyVaultPSMV2
 /// @notice PSM with configurable MAI address, minimum reserves, and evacuate/sweep/multi-guardian
@@ -31,6 +30,7 @@ contract BeefyVaultPSMV2 {
 
   address public underlying;
   address public owner;
+  address public pendingOwner;
   address public gem;
 
   // user deposits stable, schedules withdrawal of shares
@@ -47,8 +47,10 @@ contract BeefyVaultPSMV2 {
   uint256 public totalQueuedMAI;
   uint256 public evacuationTime;
   uint256 public constant SETTLEMENT_TIMEOUT = 30 days;
+  uint256 public constant UPGRADE_DELAY = 3 days;
 
   error CallerIsNotOwner();
+  error CallerIsNotPendingOwner();
   error CallerIsNotGuardianOrOwner();
   error ContractIsPaused();
   error InvalidAmount();
@@ -73,6 +75,7 @@ contract BeefyVaultPSMV2 {
   event Deposited(address indexed _user, uint256 _amount);
   event Withdrawn(address indexed _user, uint256 _amount);
   event OwnerUpdated(address _newOwner);
+  event OwnershipTransferStarted(address indexed _previousOwner, address indexed _newOwner);
   event MAIRemoved(address indexed _user, uint256 _amount);
   event FeesWithdrawn(address indexed _owner, uint256 _feesEarned);
   event PauseEvent(address _account, bytes4 _selector, bool _paused);
@@ -90,6 +93,7 @@ contract BeefyVaultPSMV2 {
   event RefundClaimed(address indexed _user, uint256 _maiAmount);
   event GuardianUpdated(address _guardian, bool _enabled);
   event RedeemFailed(bytes _reason);
+  event DepositFailed(bytes _reason);
 
   constructor() {
     owner = msg.sender;
@@ -238,7 +242,10 @@ contract BeefyVaultPSMV2 {
     uint256 _freshSharesRounded = (_freshShares / (10 ** decimalDifference));
     _beef.withdraw(_freshSharesRounded);
     IERC20(underlying).transfer(msg.sender, _toWithdrawwFee);
-    _beef.depositAll();
+    try _beef.depositAll() {}
+    catch (bytes memory reason) {
+      emit DepositFailed(reason);
+    }
 
     totalStableLiquidity -= _toWithdraw;
     totalQueuedLiquidity -= _toWithdraw;
@@ -320,7 +327,7 @@ contract BeefyVaultPSMV2 {
 
     if (!stopped) {
       stopped = true;
-      upgradeTime = block.timestamp + 2 days;
+      upgradeTime = block.timestamp + UPGRADE_DELAY;
     }
 
     uint256 totalShares = IBeefy(gem).balanceOf(address(this));
@@ -409,14 +416,21 @@ contract BeefyVaultPSMV2 {
     address _newOwner
   ) external onlyOwner {
     if (_newOwner == address(0)) revert NewOwnerCannotBeZeroAddress();
-    owner = _newOwner;
-    emit OwnerUpdated(_newOwner);
+    pendingOwner = _newOwner;
+    emit OwnershipTransferStarted(owner, _newOwner);
+  }
+
+  function acceptOwnership() external {
+    if (msg.sender != pendingOwner) revert CallerIsNotPendingOwner();
+    owner = msg.sender;
+    pendingOwner = address(0);
+    emit OwnerUpdated(msg.sender);
   }
 
   function setUpgrade() external onlyOwner {
     if (!stopped) {
       stopped = true;
-      upgradeTime = block.timestamp + 2 days;
+      upgradeTime = block.timestamp + UPGRADE_DELAY;
     }
   }
 

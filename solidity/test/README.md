@@ -34,6 +34,7 @@ solidity/test/
 | `yarn test`         | local/ unit + integration tests + invariants | No        | ~1.5s unit / ~80s invariants |
 | `yarn test:local`   | same as `yarn test`                          | No        | same           |
 | `yarn test:fork`    | parked unit/*.sol tests (DAI/Metis/zkEVM)    | **Yes**   | multiple minutes |
+| `yarn test:fork:steakhouse-prime` | Steakhouse Prime mainnet lifecycle fork gate | **Yes** | ~10s after compile |
 | `yarn coverage`     | coverage report for local/ suite             | No        | ~10s           |
 
 For a fast save-loop, skip invariants: `yarn test --no-match-path 'solidity/test/local/invariants/**/*.sol'` — finishes in under a second.
@@ -82,6 +83,26 @@ yarn test:fork
 ```
 
 If one of those chains becomes active work again, convert its fixture to a LocalBase using the pattern from Unit 3/4 of `docs/plans/2026-04-08-002-refactor-isolate-fork-and-fuzz-tests-plan.md`, and delete the corresponding `unit/*.sol` + `integration/*IntegrationBase.sol` files.
+
+## Steakhouse Prime fork gate
+
+`integration/BeefySteakhousePrimeMainnet.t.sol` is the deploy gate for the Ethereum mainnet BeefyVaultPSMV2 / Steakhouse Prime configuration. It runs under the focused `steakhouse-prime` Foundry profile, which compiles only the deploy surface with solc 0.8.24, Cancun EVM semantics, and 10,000 optimizer runs. Cancun is required because the live downstream Morpho Vault V2 dependency uses transient storage, and the deploy artifact should match the fork gate's execution requirements.
+
+For this deploy, `BeefyVaultPSMV2.UPGRADE_DELAY()` is 72 hours (`3 days`) so the privileged upgrade/transfer window is not shorter than the user withdrawal delay.
+
+Ownership is two-step for this deploy surface. The deployer starts as `owner`, calls `transferOwnership(safe)`, and the Safe must call `acceptOwnership()` before any MAI funding/opening-access transaction.
+
+```bash
+yarn test:fork:steakhouse-prime
+```
+
+This gate should pass with `0 skipped` before funding/opening the PSM.
+
+The non-broadcast deploy rehearsal uses the same profile:
+
+```bash
+yarn deploy:mainnet:steakhouse-prime:dry-run
+```
 
 ## Invariants
 

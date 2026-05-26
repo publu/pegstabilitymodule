@@ -16,14 +16,16 @@
     "coverage": "FOUNDRY_PROFILE=local forge coverage --match-path 'solidity/test/local/**/*.sol'",
     "deploy:goerli": "bash -c 'source .env && forge script DeployGoerli --rpc-url $GOERLI_RPC --broadcast --private-key $GOERLI_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY'",
     "deploy:mainnet": "bash -c 'source .env && forge script DeployMainnet --rpc-url $MAINNET_RPC --broadcast --private-key $MAINNET_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY'",
+    "deploy:mainnet:steakhouse-prime:dry-run": "bash -c 'source .env && FOUNDRY_PROFILE=steakhouse-prime ~/.foundry/bin/forge script solidity/scripts/DeployBeefySteakhousePrimeMainnet.s.sol:DeployBeefySteakhousePrimeMainnet --fork-url $MAINNET_RPC -vvv'",
     "lint:check": "yarn lint:sol-tests && yarn lint:sol-logic && forge fmt --check",
     "lint:fix": "sort-package-json && forge fmt && yarn lint:sol-tests --fix && yarn lint:sol-logic --fix",
     "lint:sol-logic": "solhint -c .solhint.json 'solidity/contracts/**/*.sol' 'solidity/interfaces/**/*.sol'",
     "lint:sol-tests": "solhint 'solidity/test/**/*.sol'",
     "prepare": "husky install",
     "test": "FOUNDRY_PROFILE=local forge test --match-path 'solidity/test/local/**/*.sol'",
-    "test:local": "FOUNDRY_PROFILE=local forge test --match-path 'solidity/test/local/**/*.sol'",
-    "test:fork": "FOUNDRY_PROFILE=test forge test --match-path 'solidity/test/unit/**/*.sol'"
+    "test:fork": "FOUNDRY_PROFILE=test forge test --match-path 'solidity/test/unit/**/*.sol'",
+    "test:fork:steakhouse-prime": "RUN_FORK_TESTS=1 FOUNDRY_PROFILE=steakhouse-prime ~/.foundry/bin/forge test --no-storage-caching",
+    "test:local": "FOUNDRY_PROFILE=local forge test --match-path 'solidity/test/local/**/*.sol'"
   },
   "lint-staged": {
     "*.{js,css,md,ts,sol}": "forge fmt",

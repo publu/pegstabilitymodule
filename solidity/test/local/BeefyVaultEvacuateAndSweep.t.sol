@@ -620,6 +620,30 @@ contract BeefyVaultPSMEvacuateAndSweepTest is BeefyV2LocalBase {
     assertEq(_psm.totalQueuedMAI(), 0, 'totalQueuedMAI should be 0 after withdrawal');
   }
 
+  function test_withdraw_succeedsWhenPostWithdrawRedeployReverts() public {
+    _depositAs(_user, 100_000 * 10 ** 6);
+
+    uint256 withdrawMAI = 40_000 * 10 ** 18;
+    deal(address(_maiToken), _user, withdrawMAI);
+    _scheduleWithdrawAs(_user, withdrawMAI);
+
+    uint256 userUsdcBefore = _usdbcToken.balanceOf(_user);
+    _beefyMock.setRevertOnDepositAll(true);
+
+    vm.warp(block.timestamp + 3 days);
+    vm.prank(_user);
+    _psm.withdraw();
+
+    uint256 grossUsdc = withdrawMAI / 10 ** _psm.decimalDifference();
+    uint256 expectedPayout = grossUsdc - _psm.calculateFee(grossUsdc, false);
+    assertEq(_usdbcToken.balanceOf(_user), userUsdcBefore + expectedPayout, 'user still receives USDC');
+    assertEq(_psm.scheduledWithdrawalAmount(_user), 0, 'schedule cleared');
+    assertEq(_psm.withdrawalEpoch(_user), 0, 'epoch cleared');
+    assertEq(_psm.totalQueuedLiquidity(), 0, 'queued liquidity cleared');
+    assertEq(_psm.totalQueuedMAI(), 0, 'queued MAI cleared');
+    assertGt(_usdbcToken.balanceOf(address(_psm)), 0, 'redeploy failure leaves idle fee in PSM');
+  }
+
   // ═══════════════════════════════════════════════════════════
   //  Dust withdrawal rejection
   // ═══════════════════════════════════════════════════════════

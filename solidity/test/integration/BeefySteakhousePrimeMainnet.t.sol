@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity >=0.8.19 <0.9.0;
 
 import {IERC20} from 'isolmate/interfaces/tokens/IERC20.sol';
 import {Test} from 'forge-std/Test.sol';
-import {console} from 'forge-std/console.sol';
 
 import {BeefyVaultPSMV2} from 'contracts/BeefyVaultPSM/V2.sol';
-import {IBeefy} from 'interfaces/IBeefy.sol';
+import {IBeefyV2 as IBeefy} from 'contracts/BeefyVaultPSM/V2Interfaces.sol';
+
+interface IERC4626Preview {
+  function previewDeposit(
+    uint256 assets
+  ) external view returns (uint256 shares);
+}
 
 /// @title BeefySteakhousePrimeMainnetIntegrationTest
 /// @notice Fork integration test for the redeployed Ethereum mainnet PSM that
@@ -20,7 +25,10 @@ import {IBeefy} from 'interfaces/IBeefy.sol';
 ///      plus a working `mainnet` RPC (`MAINNET_RPC`) in `foundry.toml`:
 ///
 ///        RUN_FORK_TESTS=1 FOUNDRY_PROFILE=test forge test \
-///          --match-contract BeefySteakhousePrimeMainnet -vvv
+///          --match-contract BeefySteakhousePrimeMainnet --use 0.8.24 --evm-version cancun -vvv
+///
+///      The focused steakhouse-prime profile also uses solc 0.8.24, Cancun EVM,
+///      and 10,000 optimizer runs for the target deploy artifact.
 contract BeefySteakhousePrimeMainnetIntegrationTest is Test {
   // On-chain identities (Ethereum mainnet). GEM verified via Beefy API + cast 2026-05-25.
   address internal constant GEM = 0x48C845d0818bAA17d22b2c0bE41915ec084599bD; // mooMorphoV2EthereumSteakhousePrimeUSDC (18 dec)
@@ -80,11 +88,35 @@ contract BeefySteakhousePrimeMainnetIntegrationTest is Test {
   ///         fork regardless of the Steakhouse Prime market's depth.
   function test_mainnet_configWiring() public {
     assertEq(_psm.gem(), GEM, 'gem is the Steakhouse Prime mooToken');
+    assertEq(_psm.owner(), _owner, 'deployer owns until Safe accepts ownership');
+    assertEq(_psm.pendingOwner(), address(0), 'no pending owner after initialize');
     assertEq(_psm.underlying(), USDC, 'underlying resolves to canonical USDC (want())');
     assertEq(_psm.MAI_ADDRESS(), MAI, 'MAI address is mainnet MAI');
     assertEq(_psm.decimalDifference(), 12, 'decimalDifference is 18 (mooToken) - 6 (USDC)');
     assertEq(_psm.depositFee(), DEPOSIT_FEE, 'deposit fee 0 bps per QCI 250');
     assertEq(_psm.withdrawalFee(), WITHDRAWAL_FEE, 'withdrawal fee 30 bps per QCI 250');
+    assertEq(_psm.UPGRADE_DELAY(), 3 days, 'upgrade delay matches withdrawal delay');
+  }
+
+  function test_mainnet_morphoPreviewDepositIsLiveOnFork() public {
+    assertGt(IERC4626Preview(MORPHO_VAULT).previewDeposit(1000 * 10 ** 6), 0, 'direct Morpho previewDeposit');
+
+    vm.prank(IBeefy(GEM).strategy());
+    assertGt(IERC4626Preview(MORPHO_VAULT).previewDeposit(1000 * 10 ** 6), 0, 'strategy Morpho previewDeposit');
+  }
+
+  function test_mainnet_depositRoutesThroughExpectedMorphoVault() public {
+    _fundForLifecycle();
+
+    uint256 depositAmount = 1000 * 10 ** 6;
+    vm.startPrank(_user);
+    _usdc.approve(address(_psm), depositAmount);
+
+    vm.expectCall(MORPHO_VAULT, abi.encodeWithSelector(IERC4626Preview.previewDeposit.selector, depositAmount));
+    _psm.deposit(depositAmount);
+
+    vm.stopPrank();
+    assertGt(_beef.balanceOf(address(_psm)), 0, 'PSM holds Beefy shares after routed deposit');
   }
 
   /// @notice Full lifecycle against the live Beefy/Morpho strategy: deposit →
@@ -92,21 +124,6 @@ contract BeefySteakhousePrimeMainnetIntegrationTest is Test {
   ///         claimRefund. Amounts kept modest (the Steakhouse Prime vault is
   ///         freshly seeded) so withdrawal liquidity is realistic.
   function test_mainnet_fullLifecycle() public {
-    // The Beefy vault wraps the Steakhouse Prime Morpho V2 vault, which is
-    // freshly created and may not yet be activated for deposits. Probe it; if
-    // deposits aren't live, skip rather than fail — this test validates the
-    // full lifecycle the moment the underlying vault goes live, and documents
-    // (via the skip) that funding the PSM is blocked until activation.
-    (bool depositsLive,) =
-      MORPHO_VAULT.staticcall(abi.encodeWithSignature('previewDeposit(uint256)', uint256(1_000_000)));
-    if (!depositsLive) {
-      console.log(
-        'SKIP: Steakhouse Prime Morpho vault not yet activated for deposits (previewDeposit reverts). Rerun after Beefy/Steakhouse activates the underlying vault.'
-      );
-      vm.skip(true);
-      return;
-    }
-
     _fundForLifecycle();
 
     // --- deposit ---

@@ -49,6 +49,19 @@ via_ir = true
 out = 'out-via-ir'
 src = 'solidity/test'
 
+[profile.steakhouse-prime]
+# Focused mainnet deploy/fork profile for BeefyVaultPSMV2 + Steakhouse Prime.
+# This intentionally excludes legacy exact-0.8.19 contracts so the deploy gate
+# can compile the target PSM artifact with Cancun-capable solc.
+src = 'solidity/contracts/BeefyVaultPSM/V2.sol'
+test = 'solidity/test/integration/BeefySteakhousePrimeMainnet.t.sol'
+out = 'out-steakhouse-prime'
+solc_version = '0.8.24'
+evm_version = 'cancun'
+optimizer_runs = 10_000
+bytecode_hash = "none"
+cbor_metadata = false
+
 [profile.docs]
 src = 'solidity/interfaces/'
 

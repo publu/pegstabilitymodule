@@ -416,10 +416,36 @@ contract PsmMainnetAdminSuite is MainnetLocalBase {
     _psm.transferOwnership(address(0x0));
 
     _psm.transferOwnership(address(_user));
+    assertEq(_psm.owner(), address(_owner));
+    assertEq(_psm.pendingOwner(), address(_user));
+
+    vm.stopPrank();
+    vm.prank(_user);
+    _psm.acceptOwnership();
     assertEq(_psm.owner(), address(_user));
+    assertEq(_psm.pendingOwner(), address(0));
 
     vm.expectRevert(BeefyVaultPSMV2.CallerIsNotOwner.selector);
     _psm.transferOwnership(address(0));
+  }
+
+  function test_PendingOwnerCannotActBeforeAccepting() public {
+    _psm.transferOwnership(address(_user));
+
+    vm.stopPrank();
+    vm.prank(_user);
+    vm.expectRevert(BeefyVaultPSMV2.CallerIsNotOwner.selector);
+    _psm.setPaused(BeefyVaultPSMV2.deposit.selector, true);
+  }
+
+  function test_AcceptOwnershipRejectsNonPendingOwner() public {
+    _psm.transferOwnership(address(_user));
+
+    address notPending = makeAddr('notPending');
+    vm.stopPrank();
+    vm.prank(notPending);
+    vm.expectRevert(BeefyVaultPSMV2.CallerIsNotPendingOwner.selector);
+    _psm.acceptOwnership();
   }
 
   function test_Pausing() public {

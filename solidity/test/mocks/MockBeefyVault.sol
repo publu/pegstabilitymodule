@@ -16,6 +16,7 @@ import {MockERC20} from './MockERC20.sol';
 contract MockBeefyVault {
   error InsufficientShares();
   error InsufficientAllowance();
+  error DepositAllReverted();
 
   event Transfer(address indexed from, address indexed to, uint256 amount);
   event Approval(address indexed owner, address indexed spender, uint256 amount);
@@ -27,6 +28,7 @@ contract MockBeefyVault {
   uint256 public totalSupply;
   mapping(address => uint256) public balanceOf;
   mapping(address => mapping(address => uint256)) public allowance;
+  bool public revertOnDepositAll;
 
   /// @param want_ The underlying ERC20 token the vault wraps.
   /// @param decimals_ The vault-share decimals. Typically 18 (matches real Beefy mooTokens).
@@ -65,6 +67,7 @@ contract MockBeefyVault {
   /// @notice Pull the caller's entire `want` balance and mint proportional shares.
   ///         Matches Beefy's `depositAll` semantics.
   function depositAll() external {
+    if (revertOnDepositAll) revert DepositAllReverted();
     _deposit(_want.balanceOf(msg.sender));
   }
 
@@ -148,6 +151,12 @@ contract MockBeefyVault {
   }
 
   // --- Test-only knobs ---
+
+  function setRevertOnDepositAll(
+    bool enabled
+  ) external {
+    revertOnDepositAll = enabled;
+  }
 
   /// @notice Grow the vault's underlying balance without minting shares, raising
   ///         `getPricePerFullShare`. Used by tests to model yield accrual.
